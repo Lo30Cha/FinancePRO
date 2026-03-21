@@ -206,7 +206,7 @@
         .tab-content::-webkit-scrollbar-track { background: transparent; }
         .tab-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-        @media (max-width: 768px) { .tab-content { padding: 18px 14px 58px; } }
+        @media (max-width: 768px) { .tab-content { padding: calc(env(safe-area-inset-top, 0px) + 18px) 14px 58px; } }
 
         /* ===== PAGE HEADER ===== */
         .page-header { margin-bottom: 20px; }
@@ -364,22 +364,22 @@
             nav {
                 position: fixed !important;
                 bottom: 0; left: 0; right: 0;
-                height: 58px;
+                height: calc(58px + env(safe-area-inset-bottom, 0px));
                 width: 100%;
                 flex-direction: row;
-                padding: 0;
+                padding: 0 0 env(safe-area-inset-bottom, 0px) 0;
                 border-right: none;
                 border-top: 1px solid var(--border);
                 background: var(--bg-primary);
                 z-index: 200;
-                overflow: visible;
+                overflow: hidden;
                 flex-shrink: 0;
                 display: flex !important;
-                align-items: stretch;
+                align-items: flex-start;
             }
 
-            /* Compenser la hauteur de la nav */
-            .tab-content { padding-bottom: 58px !important; }
+            /* Compenser la hauteur totale de la nav + home indicator */
+            .tab-content { padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px)) !important; }
 
             .nav-brand { display:none; }
             .nav-tabs, nav > div[style*="margin-top:auto"] { display:contents; }
@@ -391,6 +391,8 @@
                 justify-content: center;
                 gap: 0;
                 padding: 6px 2px 4px;
+                height: 58px;
+                max-height: 58px;
                 border-radius: 0;
                 border: none;
                 border-top: 2px solid transparent;
@@ -423,7 +425,7 @@
 
         /* Bannière démo : au-dessus de la nav fixe sur mobile */
         @media (max-width: 768px) {
-            #demo-banner { bottom: 58px !important; }
+            #demo-banner { bottom: calc(58px + env(safe-area-inset-bottom, 0px)) !important; }
             .tx-filter-grid-3 { grid-template-columns: 1fr !important; }
 
             /* Table transactions : police réduite pour tout faire tenir */
@@ -1176,6 +1178,7 @@
   transition: opacity .3s;
   background: #06080f;
   overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 /* Canvas fond animé */
