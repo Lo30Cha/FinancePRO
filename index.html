@@ -1189,13 +1189,12 @@
 <style>
 #auth-overlay {
   position: fixed;
-  top: 0; left: 0; right: 0;
-  bottom: -200px;
+  top: 0; left: 0; right: 0; bottom: 0;
   z-index: 9999;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  padding-top: 50px;
-  padding-bottom: 200px;
+  padding-top: env(safe-area-inset-top, 20px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   font-family: 'Inter', sans-serif;
   color: white;
   opacity: 0; pointer-events: none;
@@ -1462,13 +1461,11 @@
 <style>
 #splash-screen {
   position: fixed;
-  top: 0; left: 0; right: 0;
-  bottom: -200px;
+  top: 0; left: 0; right: 0; bottom: 0;
   z-index: 99999;
   background: #06080f;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  padding-bottom: 200px;
   font-family: 'Inter', sans-serif;
   pointer-events: all;
   overflow: hidden;
