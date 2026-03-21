@@ -107,16 +107,6 @@
         html {
             background: #06080f;
             height: 100%;
-            overscroll-behavior: none;
-        }
-        /* Couvre la zone de rebond iOS en bas avec la couleur du fond */
-        html::after {
-            content: '';
-            position: fixed;
-            bottom: -200px; left: 0; right: 0;
-            height: 200px;
-            background: var(--bg-primary);
-            z-index: 0;
         }
 
         body {
@@ -127,7 +117,6 @@
             height: 100dvh;
             height: 100svh; /* iOS Safari: small viewport = toolbar toujours comptée */
             overflow: hidden;
-            overscroll-behavior: none;
         }
 
         @media (max-width: 768px) {
@@ -1178,13 +1167,9 @@
 <!-- ===== AUTH OVERLAY ===== -->
 <style>
 #auth-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  bottom: -200px;
-  z-index: 9999;
+  position: fixed; inset: 0; z-index: 9999;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  padding-bottom: 200px;
   font-family: 'Inter', sans-serif;
   color: white;
   opacity: 0; pointer-events: none;
@@ -1450,14 +1435,10 @@
 <!-- ===== SPLASH SCREEN ===== -->
 <style>
 #splash-screen {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  bottom: -200px;
-  z-index: 99999;
+  position: fixed; inset: 0; z-index: 99999;
   background: #06080f;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  padding-bottom: 200px;
   font-family: 'Inter', sans-serif;
   pointer-events: all;
   overflow: hidden;
