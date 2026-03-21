@@ -365,11 +365,9 @@
                 position: fixed !important;
                 bottom: 0; left: 0; right: 0;
                 height: 58px;
-                padding-bottom: env(safe-area-inset-bottom, 0px);
-                box-sizing: content-box;
                 width: 100%;
                 flex-direction: row;
-                padding-left: 0; padding-right: 0; padding-top: 0;
+                padding: 0;
                 border-right: none;
                 border-top: 1px solid var(--border);
                 background: var(--bg-primary);
@@ -377,11 +375,11 @@
                 overflow: visible;
                 flex-shrink: 0;
                 display: flex !important;
-                align-items: flex-start;
+                align-items: stretch;
             }
 
-            /* Compenser la hauteur de la nav fixe + éventuel safe area */
-            .tab-content { padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px)) !important; }
+            /* Compenser la hauteur de la nav fixe */
+            .tab-content { padding-bottom: 58px !important; }
 
             .nav-brand { display:none; }
             .nav-tabs, nav > div[style*="margin-top:auto"] { display:contents; }
