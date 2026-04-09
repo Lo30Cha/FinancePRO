@@ -1283,6 +1283,108 @@
   letter-spacing: -0.01em;
 }
 #btn-demo:hover { background: rgba(139,92,246,0.08); border-color: rgba(139,92,246,0.55); }
+
+/* Bouton mode avion */
+#btn-airplane {
+  width: 100%; padding: 13px;
+  background: transparent;
+  border: 1px solid rgba(100,180,255,0.2);
+  border-radius: 8px;
+  color: rgba(100,200,255,0.65); font-size: 0.82rem; font-weight: 500;
+  font-family: 'Inter', sans-serif; cursor: pointer;
+  margin-top: 10px;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  letter-spacing: -0.01em;
+}
+#btn-airplane:hover { background: rgba(100,180,255,0.06); border-color: rgba(100,180,255,0.4); color: rgba(150,220,255,0.9); }
+
+/* Modal mode avion (overlay par-dessus l'auth) */
+#airplane-modal {
+  position: fixed; inset: 0; z-index: 10001;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0); pointer-events: none;
+  transition: background 0.28s ease;
+  padding: 20px;
+}
+#airplane-modal.am-open {
+  background: rgba(0,0,0,0.78);
+  pointer-events: all;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.airplane-inner {
+  background: linear-gradient(160deg, #0f1629 0%, #0a0e1f 100%);
+  border: 1px solid rgba(100,180,255,0.2);
+  border-radius: 20px;
+  width: 100%; max-width: 400px;
+  padding: 28px 28px 24px;
+  opacity: 0;
+  transform: scale(0.93) translateY(14px);
+  transition: opacity 0.26s ease, transform 0.26s cubic-bezier(0.34,1.56,0.64,1);
+}
+#airplane-modal.am-open .airplane-inner {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+.airplane-title {
+  font-size: 1.15rem; font-weight: 800; color: white;
+  margin-bottom: 4px; letter-spacing: -0.02em;
+}
+.airplane-title span { color: rgba(100,200,255,0.8); }
+.airplane-subtitle {
+  font-size: 0.8rem; color: rgba(255,255,255,0.35);
+  margin-bottom: 26px; line-height: 1.5;
+}
+.airplane-upload-zone {
+  border: 1.5px dashed rgba(100,180,255,0.3);
+  border-radius: 14px;
+  padding: 22px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  margin-bottom: 12px;
+  position: relative;
+}
+.airplane-upload-zone:hover { border-color: rgba(100,180,255,0.6); background: rgba(100,180,255,0.04); }
+.airplane-upload-icon { font-size: 1.7rem; margin-bottom: 8px; }
+.airplane-upload-label { font-size: 0.88rem; font-weight: 600; color: rgba(255,255,255,0.75); margin-bottom: 4px; }
+.airplane-upload-hint { font-size: 0.73rem; color: rgba(255,255,255,0.28); }
+.airplane-or { text-align: center; font-size: 0.72rem; color: rgba(255,255,255,0.2); margin: 14px 0; letter-spacing: 0.1em; text-transform: uppercase; }
+.airplane-btn-empty {
+  width: 100%; padding: 12px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: rgba(255,255,255,0.45); font-size: 0.83rem; font-weight: 500;
+  font-family: 'Inter', sans-serif; cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  margin-bottom: 16px;
+}
+.airplane-btn-empty:hover { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.22); }
+.airplane-cancel {
+  display: block; width: 100%; text-align: center;
+  font-size: 0.75rem; color: rgba(255,255,255,0.2);
+  background: none; border: none;
+  font-family: 'Inter', sans-serif; cursor: pointer;
+  padding: 4px 0;
+  transition: color 0.2s;
+}
+.airplane-cancel:hover { color: rgba(255,255,255,0.5); }
+.airplane-file-selected {
+  font-size: 0.78rem; color: rgba(100,220,160,0.85);
+  text-align: center; margin-bottom: 12px; display: none;
+}
+.airplane-btn-confirm {
+  width: 100%; padding: 13px;
+  background: rgba(100,180,255,0.18);
+  border: 1px solid rgba(100,180,255,0.4);
+  border-radius: 10px;
+  color: rgba(150,220,255,0.95); font-size: 0.88rem; font-weight: 600;
+  font-family: 'Inter', sans-serif; cursor: pointer;
+  transition: background 0.2s;
+  margin-bottom: 10px; display: none;
+}
+.airplane-btn-confirm:hover { background: rgba(100,180,255,0.28); }
 </style>
 
 <div id="auth-overlay">
@@ -1321,6 +1423,30 @@
 
     <hr class="auth-sep">
     <button id="btn-demo" onclick="enterDemoMode()">Essayer en mode démo →</button>
+    <button id="btn-airplane" onclick="openAirplaneModal()">✈️ Mode avion — données locales</button>
+  </div>
+</div>
+
+<!-- MODAL MODE AVION -->
+<input type="file" id="airplane-file-input" accept=".xlsx,.xls,.csv" style="display:none;" onchange="onAirplaneFileSelected(this)">
+<div id="airplane-modal" onclick="if(event.target.id==='airplane-modal')closeAirplaneModal()">
+  <div class="airplane-inner">
+    <div class="airplane-title">✈️ Mode <span>Avion</span></div>
+    <div class="airplane-subtitle">Toutes tes données restent sur l'appareil.<br>Aucune connexion requise.</div>
+
+    <div class="airplane-upload-zone" onclick="document.getElementById('airplane-file-input').click()">
+      <div class="airplane-upload-icon">📂</div>
+      <div class="airplane-upload-label">Importer un fichier existant</div>
+      <div class="airplane-upload-hint">.xlsx, .xls ou .csv</div>
+    </div>
+
+    <div class="airplane-file-selected" id="airplane-file-label">— aucun fichier —</div>
+    <button class="airplane-btn-confirm" id="airplane-btn-confirm" onclick="confirmAirplaneImport()">Charger et continuer →</button>
+
+    <div class="airplane-or">ou</div>
+
+    <button class="airplane-btn-empty" onclick="enterLocalMode(null)">Commencer sans données</button>
+    <button class="airplane-cancel" onclick="closeAirplaneModal()">← Retour à la connexion</button>
   </div>
 </div>
 
@@ -7202,6 +7328,125 @@ window.exitDemoMode = function() {
     });
 
     // Recharger — le cloud rechargera les vraies données après login
+    window.location.reload();
+};
+
+// ===== MODE AVION =====
+let _airplanePendingFile = null;
+
+window.openAirplaneModal = function() {
+    _airplanePendingFile = null;
+    document.getElementById('airplane-file-label').style.display = 'none';
+    document.getElementById('airplane-btn-confirm').style.display = 'none';
+    const modal = document.getElementById('airplane-modal');
+    modal.style.display = 'flex';
+    modal.offsetHeight;
+    modal.classList.add('am-open');
+};
+
+window.closeAirplaneModal = function() {
+    const modal = document.getElementById('airplane-modal');
+    modal.classList.remove('am-open');
+    setTimeout(() => { modal.style.display = 'none'; }, 280);
+};
+
+window.onAirplaneFileSelected = function(input) {
+    const file = input.files[0];
+    if (!file) return;
+    _airplanePendingFile = file;
+    const label = document.getElementById('airplane-file-label');
+    label.textContent = '✅ ' + file.name;
+    label.style.display = 'block';
+    document.getElementById('airplane-btn-confirm').style.display = 'block';
+    // Reset input pour permettre re-sélection
+    input.value = '';
+};
+
+window.confirmAirplaneImport = function() {
+    if (!_airplanePendingFile) return;
+    closeAirplaneModal();
+    setTimeout(() => enterLocalMode(_airplanePendingFile), 300);
+};
+
+window.enterLocalMode = function(file) {
+    window._localMode = true;
+
+    // Bloquer cloud
+    window.saveToCloud   = function() { saveLocalData(); };
+    window.loadFromCloud = function() { loadLocalData(); };
+
+    // Masquer overlay auth
+    const overlay = document.getElementById('auth-overlay');
+    if (overlay) { overlay.style.opacity = '0'; overlay.style.pointerEvents = 'none'; }
+
+    // Bannière mode local
+    const banner = document.getElementById('demo-banner');
+    if (banner) {
+        banner.innerHTML = '✈️ Mode avion — données locales &nbsp;<button onclick="exitLocalMode()" style="background:rgba(255,255,255,0.12);border:none;color:white;padding:3px 10px;border-radius:6px;font-size:0.75rem;cursor:pointer;font-family:inherit;">Quitter</button>';
+        banner.style.display = 'flex';
+    }
+
+    if (file) {
+        // Charger le fichier via parseFile existant
+        parseFile(file);
+        setTimeout(() => {
+            initializeMonthSelector();
+            refreshAllViews();
+            applySettings();
+            loadCustomBlocks();
+            renderSettingsUI();
+        }, 400);
+    } else {
+        // Charger depuis localStorage si existant, sinon vide
+        loadLocalData();
+        initializeMonthSelector();
+        refreshAllViews();
+        applySettings();
+        loadCustomBlocks();
+        renderSettingsUI();
+    }
+};
+
+function saveLocalData() {
+    try {
+        localStorage.setItem('local-transactions', JSON.stringify(transactions.map(t => ({
+            ...t, date: t.date instanceof Date ? t.date.toISOString() : t.date
+        }))));
+        localStorage.setItem('local-patrimoine', JSON.stringify(patrimoine));
+        localStorage.setItem('local-patrimoine-historique', JSON.stringify(patrimoineHistorique));
+        localStorage.setItem('local-custom-blocks', JSON.stringify(customBlocks));
+        localStorage.setItem('local-settings', JSON.stringify(appSettings));
+        localStorage.setItem('local-last-update', new Date().toISOString());
+    } catch(e) { console.warn('[LOCAL] saveLocalData error', e); }
+}
+
+function loadLocalData() {
+    try {
+        const tx = localStorage.getItem('local-transactions');
+        if (tx) {
+            transactions = JSON.parse(tx).map(t => ({ ...t, date: new Date(t.date) }));
+        }
+        const pat = localStorage.getItem('local-patrimoine');
+        if (pat) patrimoine = JSON.parse(pat);
+        const hist = localStorage.getItem('local-patrimoine-historique');
+        if (hist) patrimoineHistorique = JSON.parse(hist);
+        const blocks = localStorage.getItem('local-custom-blocks');
+        if (blocks) customBlocks = JSON.parse(blocks);
+        const settings = localStorage.getItem('local-settings');
+        if (settings) Object.assign(appSettings, JSON.parse(settings));
+        const upd = localStorage.getItem('local-last-update');
+        if (upd) lastUpdateDate = upd;
+    } catch(e) { console.warn('[LOCAL] loadLocalData error', e); }
+}
+
+window.exitLocalMode = function() {
+    window._localMode = false;
+    localStorage.removeItem('local-transactions');
+    localStorage.removeItem('local-patrimoine');
+    localStorage.removeItem('local-patrimoine-historique');
+    localStorage.removeItem('local-custom-blocks');
+    localStorage.removeItem('local-settings');
+    localStorage.removeItem('local-last-update');
     window.location.reload();
 };
 
