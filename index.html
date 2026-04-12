@@ -16,6 +16,8 @@
     <link rel="manifest" href="data:application/manifest+json;base64,ewogICJuYW1lIjogIkZpbmFuY2UgUHJvIiwKICAic2hvcnRfbmFtZSI6ICJGaW5hbmNlIFBybyIsCiAgImRlc2NyaXB0aW9uIjogIkRhc2hib2FyZCBmaW5hbmNpZXIgcGVyc29ubmVsIiwKICAic3RhcnRfdXJsIjogIi4vaW5kZXguaHRtbCIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgIm9yaWVudGF0aW9uIjogInBvcnRyYWl0IiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjMGEwZTI3IiwKICAidGhlbWVfY29sb3IiOiAiIzBhMGUyNyIsCiAgImljb25zIjogWwogICAgewogICAgICAic3JjIjogImljb24tMTkyLnBuZyIsCiAgICAgICJzaXplcyI6ICIxOTJ4MTkyIiwKICAgICAgInR5cGUiOiAiaW1hZ2UvcG5nIiwKICAgICAgInB1cnBvc2UiOiAiYW55IG1hc2thYmxlIgogICAgfSwKICAgIHsKICAgICAgInNyYyI6ICJpY29uLTUxMi5wbmciLAogICAgICAic2l6ZXMiOiAiNTEyeDUxMiIsCiAgICAgICJ0eXBlIjogImltYWdlL3BuZyIsCiAgICAgICJwdXJwb3NlIjogImFueSBtYXNrYWJsZSIKICAgIH0KICBdCn0=">
     <title>Dashboard Financier Personnel</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.1/dist/chartjs-plugin-zoom.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -809,6 +811,221 @@
             .pat-add-row input, .pat-add-row button { width: 100%; }
         }
 
+        /* ===== BOUTON INFO PRÊT ===== */
+        .pret-info-btn {
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            border: 1.5px solid rgba(0,217,255,0.45);
+            background: rgba(0,217,255,0.08);
+            color: #00d9ff;
+            font-size: 0.72rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.2s, border-color 0.2s;
+            font-family: 'Inter', sans-serif;
+            line-height: 1;
+        }
+        .pret-info-btn:hover {
+            background: rgba(0,217,255,0.2);
+            border-color: #00d9ff;
+        }
+
+        /* ===== MODAL DÉTAIL PRÊT ===== */
+        #pret-detail-modal {
+            display: none;
+            position: fixed; inset: 0; z-index: 1060;
+            background: rgba(0,0,0,0.75);
+            align-items: center; justify-content: center;
+            padding: 16px;
+            backdrop-filter: blur(6px);
+        }
+        .pret-detail-inner {
+            background: linear-gradient(160deg,#0f1629,#0a0e20);
+            border: 1px solid rgba(0,217,255,0.25);
+            border-radius: 18px;
+            width: 100%; max-width: 520px;
+            max-height: 90vh; overflow-y: auto;
+            animation: slideIn 0.25s ease;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+        }
+        .pret-detail-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 18px 22px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .pret-detail-header h2 { font-size: 1.05rem; margin: 0; }
+        .pret-detail-close {
+            cursor: pointer; width: 30px; height: 30px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 8px; font-size: 1rem;
+            color: var(--text-secondary);
+            background: none; border: none;
+            transition: all 0.2s;
+        }
+        .pret-detail-close:hover { background: rgba(239,68,68,0.15); color: #ef4444; }
+        .pret-detail-body { padding: 18px 22px 22px; }
+        .pret-stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .pret-stat-box {
+            background: var(--accent-subtle);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 11px 13px;
+        }
+        .pret-stat-label {
+            font-size: 0.68rem; font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase; letter-spacing: 0.05em;
+            margin-bottom: 4px;
+        }
+        .pret-stat-value {
+            font-size: 1.1rem; font-weight: 700;
+            font-family: 'Inter', sans-serif;
+        }
+        .pret-stat-sub {
+            font-size: 0.7rem; color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        .pret-amort-bar {
+            display: flex; height: 8px; border-radius: 4px;
+            overflow: hidden; margin: 14px 0 6px;
+        }
+        .pret-amort-bar-capital { background: #00d9ff; }
+        .pret-amort-bar-interets { background: #fb923c; }
+        .pret-timeline-row {
+            display: flex; align-items: center;
+            justify-content: space-between;
+            padding: 7px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.82rem;
+        }
+        .pret-timeline-row:last-child { border-bottom: none; }
+        @media (max-width: 520px) {
+            .pret-stat-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ===== PRÊTS BANCAIRES ===== */
+        .pret-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+        }
+        .pret-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .pret-card-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .pret-card-badge {
+            font-size: 0.68rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 20px;
+            background: rgba(251,146,60,0.12);
+            color: #fb923c;
+            border: 1px solid rgba(251,146,60,0.3);
+        }
+        .pret-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .pret-kpi {
+            background: var(--accent-subtle);
+            border-radius: 8px;
+            padding: 8px 10px;
+        }
+        .pret-kpi-label {
+            font-size: 0.66rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 3px;
+        }
+        .pret-kpi-value {
+            font-size: 0.95rem;
+            font-weight: 700;
+        }
+        .pret-progress-bar {
+            height: 5px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        .pret-progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            background: linear-gradient(90deg, #fb923c, #f59e0b);
+            transition: width 0.4s ease;
+        }
+        .pret-depense-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .pret-depense-row input {
+            flex: 1;
+            margin-bottom: 0;
+            font-size: 0.85rem;
+            padding: 6px 10px;
+        }
+        .pret-depense-row label {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        .pret-form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 8px;
+            align-items: end;
+        }
+        .pret-form-group label {
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 4px;
+        }
+        .pret-form-group input {
+            margin-bottom: 0;
+        }
+        .loan-kpi-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        @media (max-width: 768px) {
+            .pret-grid { grid-template-columns: repeat(2, 1fr); }
+            .pret-form-grid { grid-template-columns: 1fr 1fr; }
+            .loan-kpi-row { grid-template-columns: 1fr; }
+        }
+
         /* ── Masquer les montants (mode privé) — uniquement les € ── */
         body.hide-amounts .amount-hidden {
             filter: blur(8px);
@@ -860,6 +1077,7 @@
         user_id:               uid,
         transactions:          localStorage.getItem('finance-data') || '[]',
         patrimoine:            localStorage.getItem('finance-patrimoine') || '[]',
+        prets:                 localStorage.getItem('finance-prets') || '[]',
         settings:              localStorage.getItem('finance-settings') || '{}',
         custom_blocks:         localStorage.getItem('finance-custom-blocks') || '[]',
         patrimoine_historique: localStorage.getItem('finance-patrimoine-historique') || '{}',
@@ -902,6 +1120,7 @@
       if (!data) { console.log('loadFromCloud: aucune donnée'); return; }
       if (data.transactions)          localStorage.setItem('finance-data', data.transactions);
       if (data.patrimoine)            localStorage.setItem('finance-patrimoine', data.patrimoine);
+      if (data.prets)                 localStorage.setItem('finance-prets', data.prets);
       if (data.settings)              localStorage.setItem('finance-settings', data.settings);
       if (data.custom_blocks)         localStorage.setItem('finance-custom-blocks', data.custom_blocks);
       if (data.patrimoine_historique) localStorage.setItem('finance-patrimoine-historique', data.patrimoine_historique);
@@ -1055,6 +1274,7 @@
     localStorage.removeItem('finance-settings');
     localStorage.removeItem('finance-custom-blocks');
     localStorage.removeItem('finance-patrimoine-historique');
+    localStorage.removeItem('finance-prets');
     localStorage.removeItem('finance-last-update');
     localStorage.removeItem('finance-sanitize-version');
 
@@ -1062,6 +1282,7 @@
     if (typeof transactions        !== 'undefined') transactions        = [];
     if (typeof patrimoine          !== 'undefined') patrimoine          = [];
     if (typeof patrimoineHistorique!== 'undefined') patrimoineHistorique= {};
+    if (typeof prets               !== 'undefined') prets               = [];
     if (typeof customBlocks        !== 'undefined') customBlocks        = [];
     if (typeof lastUpdateDate      !== 'undefined') lastUpdateDate      = null;
     if (typeof customChartInstances!== 'undefined') {
@@ -1806,6 +2027,62 @@
     </div>
 </div>
 
+<!-- MODAL: Détail prêt bancaire -->
+<div id="pret-detail-modal" onclick="if(event.target.id==='pret-detail-modal')closePretDetailModal()">
+    <div class="pret-detail-inner">
+        <div class="pret-detail-header">
+            <h2 id="pret-detail-title">🏦 Détail du prêt</h2>
+            <button class="pret-detail-close" onclick="closePretDetailModal()">✕</button>
+        </div>
+        <div class="pret-detail-body" id="pret-detail-body"></div>
+    </div>
+</div>
+
+<!-- MODAL: Édition prêt bancaire -->
+<div id="pret-edit-modal" onclick="if(event.target.id==='pret-edit-modal')closePretEditModal()">
+    <div class="pret-detail-inner">
+        <div class="pret-detail-header">
+            <h2>✏️ Modifier le prêt</h2>
+            <button class="pret-detail-close" onclick="closePretEditModal()">✕</button>
+        </div>
+        <div style="padding:20px 22px 24px; display:flex; flex-direction:column; gap:14px;">
+            <input type="hidden" id="pret-edit-id">
+            <div class="pret-form-grid">
+                <div class="pret-form-group">
+                    <label>Nom</label>
+                    <input type="text" id="pret-edit-nom" placeholder="Ex : Prêt immo">
+                </div>
+                <div class="pret-form-group">
+                    <label>Montant initial (€)</label>
+                    <input type="number" id="pret-edit-montant" placeholder="200000" min="0" step="100">
+                </div>
+                <div class="pret-form-group">
+                    <label>Taux annuel (%)</label>
+                    <input type="number" id="pret-edit-taux" placeholder="3.5" min="0" step="0.01">
+                </div>
+                <div class="pret-form-group">
+                    <label>Durée (années)</label>
+                    <input type="number" id="pret-edit-duree" placeholder="20" min="1" step="1">
+                </div>
+            </div>
+            <div class="pret-form-grid">
+                <div class="pret-form-group">
+                    <label>Date de début</label>
+                    <input type="date" id="pret-edit-date">
+                </div>
+                <div class="pret-form-group">
+                    <label>Dépensé du prêt (€)</label>
+                    <input type="number" id="pret-edit-depense" placeholder="0" min="0" step="100">
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:4px;">
+                <button class="btn secondary" style="flex:1;" onclick="closePretEditModal()">Annuler</button>
+                <button class="btn" style="flex:2;" onclick="savePretEdit()">💾 Enregistrer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- MODAL: Ajouter un bloc personnalisé -->
 <!-- MODAL: Ajouter un bloc personnalisé -->
 <div id="add-block-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:1002; align-items:center; justify-content:center; padding:16px;" onclick="if(event.target.id==='add-block-modal')closeAddBlockModal()">
@@ -2137,6 +2414,9 @@
 
         <div class="card">
             <h3>Revenus vs dépenses</h3>
+            <div class="chart-zoom-bar">
+                <button class="chart-zoom-reset" id="zoom-reset-chartAnneeBar" onclick="resetChartZoom('chartAnneeBar')" title="Réinitialiser le zoom">↺ Reset zoom</button>
+            </div>
             <div class="chart-container chart-container-tall">
                 <canvas id="chart-annee-bar"></canvas>
             </div>
@@ -2188,6 +2468,9 @@
 
         <div class="card">
             <h3>Épargne cumulée</h3>
+            <div class="chart-zoom-bar">
+                <button class="chart-zoom-reset" id="zoom-reset-chartPeriodeCumul" onclick="resetChartZoom('chartPeriodeCumul')" title="Réinitialiser le zoom">↺ Reset zoom</button>
+            </div>
             <div class="chart-container chart-container-tall">
                 <canvas id="chart-periode-cumul"></canvas>
             </div>
@@ -2196,7 +2479,10 @@
         <div class="grid-2">
             <div class="card">
                 <h3>Évolution des habitudes</h3>
-                <div class="chart-container">
+                <div class="chart-zoom-bar">
+                <button class="chart-zoom-reset" id="zoom-reset-chartPeriodeHabits" onclick="resetChartZoom('chartPeriodeHabits')" title="Réinitialiser le zoom">↺ Reset zoom</button>
+            </div>
+            <div class="chart-container">
                     <canvas id="chart-periode-habits"></canvas>
                 </div>
             </div>
@@ -2228,47 +2514,120 @@
     <section id="tab-patrimoine" class="tab-content">
         <div class="page-header">
             <h1>Patrimoine</h1>
-            <p>Vue globale de vos actifs et répartition</p>
+            <p>Suivi de vos actifs et prêts bancaires dans le temps</p>
+        </div>
+
+        <!-- KPI row -->
+        <div class="loan-kpi-row">
+            <div class="stat-box">
+                <div class="stat-label">💰 Argent réel (comptes)</div>
+                <div class="stat-value amount-hidden" id="patrimoine-total" style="color:var(--accent-blue);">0.00 €</div>
+                <div class="stat-change" id="pat-kpi-reel-sub" style="color:var(--text-secondary);font-size:0.72rem;margin-top:4px;"></div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">🏦 Capital restant dû</div>
+                <div class="stat-value amount-hidden" id="pat-kpi-dette" style="color:#fb923c;">0.00 €</div>
+                <div class="stat-change" id="pat-kpi-dette-sub" style="color:var(--text-secondary);font-size:0.72rem;margin-top:4px;"></div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">✅ Argent perso (net)</div>
+                <div class="stat-value amount-hidden" id="pat-kpi-perso" style="color:#10b981;">0.00 €</div>
+                <div class="stat-change" id="pat-kpi-perso-sub" style="color:var(--text-secondary);font-size:0.72rem;margin-top:4px;"></div>
+            </div>
         </div>
 
         <div id="patrimoine-month-alert" class="info-box" style="display:none; border-left-color:var(--warning); color:var(--warning); margin-bottom:14px;"></div>
 
-        <div class="stat-box" style="text-align: left; grid-column: 1;">
-            <div class="stat-label">Patrimoine total</div>
-            <div class="stat-value amount-hidden" id="patrimoine-total" style="color: var(--accent-blue); font-size: 1.9rem;">0.00 €</div>
+        <!-- Graphique 3 courbes -->
+        <div class="card">
+            <h3>Évolution dans le temps</h3>
+            <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;font-size:0.78rem;" class="pat-chart-legend">
+                <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:3px;background:#00d9ff;display:inline-block;border-radius:2px;"></span>Argent réel (comptes)</span>
+                <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:3px;background:#10b981;display:inline-block;border-radius:2px;"></span>Argent perso (net)</span>
+                <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:3px;background:#fb923c;display:inline-block;border-radius:2px;border-style:dashed;"></span>Capital restant dû</span>
+            </div>
+            <div class="chart-zoom-bar">
+                <button class="chart-zoom-reset" id="zoom-reset-chartPatrimoineEvolution" onclick="resetChartZoom('chartPatrimoineEvolution')" title="Réinitialiser le zoom">↺ Reset zoom</button>
+            </div>
+            <div class="chart-container chart-container-tall">
+                <canvas id="chart-patrimoine-evolution"></canvas>
+            </div>
         </div>
 
         <div class="grid-2">
+            <!-- Comptes -->
+            <div class="card">
+                <h3>Comptes</h3>
+                <div id="patrimoine-banques-list" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;"></div>
+                <div class="pat-add-row" style="margin-top:16px;">
+                    <input type="text" id="pat-new-nom" placeholder="Nom du compte (ex : Livret A)" style="flex:2; margin-bottom:0;">
+                    <input type="number" id="pat-new-solde" placeholder="Solde (€)" step="0.01" style="flex:1; margin-bottom:0;">
+                    <button class="btn btn-small" onclick="addBanque()" style="flex-shrink:0; height:40px; white-space:nowrap;">+ Ajouter</button>
+                </div>
+                <button class="btn" style="width:100%; margin-top:12px;" onclick="updatePatrimoine()">💾 Sauvegarder</button>
+            </div>
+
+            <!-- Répartition -->
             <div class="card">
                 <h3>Répartition des actifs</h3>
                 <div class="chart-container">
                     <canvas id="chart-patrimoine-pie"></canvas>
                 </div>
             </div>
-            <div class="card">
-                <h3>Comptes</h3>
-
-                <!-- Liste dynamique des banques -->
-                <div id="patrimoine-banques-list" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;"></div>
-
-                <!-- Formulaire d'ajout -->
-                <div class="pat-add-row" style="margin-top:16px;">
-                    <input type="text" id="pat-new-nom" placeholder="Nom du compte (ex : Livret A)" style="flex:2; margin-bottom:0;">
-                    <input type="number" id="pat-new-solde" placeholder="Solde (€)" step="0.01" style="flex:1; margin-bottom:0;">
-                    <button class="btn btn-small" onclick="addBanque()" style="flex-shrink:0; height:40px; white-space:nowrap;">+ Ajouter</button>
-                </div>
-
-                <button class="btn" style="width:100%; margin-top:12px;" onclick="updatePatrimoine()">Sauvegarder</button>
-            </div>
         </div>
 
+        <!-- Prêts bancaires -->
         <div class="card">
-            <h3>Évolution du patrimoine</h3>
-            <div class="chart-container chart-container-tall">
-                <canvas id="chart-patrimoine-evolution"></canvas>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                <h3 style="margin-bottom:0;">🏦 Prêts bancaires</h3>
+                <button class="btn btn-small" onclick="openAddPretForm()">+ Ajouter un prêt</button>
+            </div>
+
+            <!-- Formulaire d'ajout (caché par défaut) -->
+            <div id="pret-add-form" style="display:none; background:var(--accent-subtle); border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:16px;">
+                <div style="font-size:0.8rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;">Nouveau prêt</div>
+                <div class="pret-form-grid" style="margin-bottom:10px;">
+                    <div class="pret-form-group">
+                        <label>Nom</label>
+                        <input type="text" id="pret-new-nom" placeholder="Ex : Prêt immo">
+                    </div>
+                    <div class="pret-form-group">
+                        <label>Montant (€)</label>
+                        <input type="number" id="pret-new-montant" placeholder="200000" min="0" step="100">
+                    </div>
+                    <div class="pret-form-group">
+                        <label>Taux annuel (%)</label>
+                        <input type="number" id="pret-new-taux" placeholder="3.5" min="0" step="0.01">
+                    </div>
+                    <div class="pret-form-group">
+                        <label>Durée (années)</label>
+                        <input type="number" id="pret-new-duree" placeholder="20" min="1" step="1">
+                    </div>
+                </div>
+                <div class="pret-form-grid" style="margin-bottom:12px;">
+                    <div class="pret-form-group">
+                        <label>Date de début</label>
+                        <input type="date" id="pret-new-date">
+                    </div>
+                    <div class="pret-form-group">
+                        <label>Dépensé du prêt (€)</label>
+                        <input type="number" id="pret-new-depense" placeholder="0" min="0" step="100">
+                    </div>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn secondary" style="flex:1;" onclick="closeAddPretForm()">Annuler</button>
+                    <button class="btn" style="flex:2;" onclick="addPret()">✅ Ajouter ce prêt</button>
+                </div>
+            </div>
+
+            <!-- Liste des prêts -->
+            <div id="prets-list"></div>
+            <div id="prets-empty" style="text-align:center;padding:24px 0;color:var(--text-secondary);font-size:0.85rem;">
+                Aucun prêt — cliquez sur "+ Ajouter un prêt" pour commencer
             </div>
         </div>
 
+        <!-- Tableau détail comptes -->
         <div class="card">
             <h3>Détail des actifs</h3>
             <table>
@@ -3414,6 +3773,7 @@ window.closeHelp = function() {
     let transactions = [];
     let patrimoine = [];
     let patrimoineNextId = 1;
+    let prets = []; // Prêts bancaires
     let lastUpdateDate = null; // Date ISO string ou null
     let patrimoineHistorique = {}; // { "YYYY-MM": valeur } — évolution mensuelle du patrimoine
     let chartInstances = {};
@@ -3515,6 +3875,8 @@ window.closeHelp = function() {
         // Charger l'historique patrimoine
         const storedHist = localStorage.getItem('finance-patrimoine-historique');
         if (storedHist) patrimoineHistorique = JSON.parse(storedHist);
+        const storedPrets = localStorage.getItem('finance-prets');
+        if (storedPrets) prets = JSON.parse(storedPrets);
     }
 
     function touchLastUpdate() {
@@ -3548,6 +3910,7 @@ window.closeHelp = function() {
     function saveToLocalStorage() {
         localStorage.setItem('finance-data', JSON.stringify(transactions));
         localStorage.setItem('finance-patrimoine', JSON.stringify(patrimoine));
+        localStorage.setItem('finance-prets', JSON.stringify(prets));
         touchLastUpdate();
         // Sync cloud (débounce 2s pour éviter les appels trop fréquents)
         if (window._cloudSyncTimer) clearTimeout(window._cloudSyncTimer);
@@ -3662,6 +4025,7 @@ window.closeHelp = function() {
                     const markerOf = line => {
                         const first = parseCSVLine(line)[0].trim();
                         if (first === '---PATRIMOINE---') return 'PATRIMOINE';
+                        if (first === '---PRETS---') return 'PRETS';
                         // Supporter les deux variantes du marqueur évolution
                         if (first === '---PATRIMOINE-EVOLUTION---' ||
                             first.replace(/\s/g,'') === '---EVOLUTIONPATRIMOINE---' ||
@@ -3671,14 +4035,16 @@ window.closeHelp = function() {
 
                     let patrimoineStartIdx = -1;
                     let evolStartIdx = -1;
+                    let pretsStartIdx = -1;
                     shiftedLines.forEach((line, i) => {
                         const m = markerOf(line.trim());
                         if (m === 'PATRIMOINE' && patrimoineStartIdx === -1) patrimoineStartIdx = i;
                         if (m === 'EVOLUTION' && evolStartIdx === -1) evolStartIdx = i;
+                        if (m === 'PRETS' && pretsStartIdx === -1) pretsStartIdx = i;
                     });
 
                     // Lignes de transactions = tout avant le premier marqueur (ou tout si aucun)
-                    const firstMarker = [patrimoineStartIdx, evolStartIdx].filter(x => x > -1);
+                    const firstMarker = [patrimoineStartIdx, evolStartIdx, pretsStartIdx].filter(x => x > -1);
                     const txEndIdx = firstMarker.length > 0 ? Math.min(...firstMarker) : shiftedLines.length;
 
                     // Filtrer les lignes vides et les lignes ne contenant que des virgules
@@ -3696,7 +4062,14 @@ window.closeHelp = function() {
                         : [];
 
                     const evolLines = evolStartIdx > -1
-                        ? shiftedLines.slice(evolStartIdx + 1).filter(isDataLine)
+                        ? shiftedLines.slice(
+                            evolStartIdx + 1,
+                            pretsStartIdx > evolStartIdx ? pretsStartIdx : shiftedLines.length
+                          ).filter(isDataLine)
+                        : [];
+
+                    const pretsLines = pretsStartIdx > -1
+                        ? shiftedLines.slice(pretsStartIdx + 1).filter(isDataLine)
                         : [];
 
                     // ── 3. Parser les transactions ───────────────────────────
@@ -3759,6 +4132,32 @@ window.closeHelp = function() {
                     }).filter(t => t !== null && t.montant !== 0);
 
                     console.log('CSV transactions parsed:', transactions.length);
+
+                    // ── 6. Parser les prêts ──────────────────────────────────
+                    if (pretsLines.length >= 2) {
+                        try {
+                            // Skip header line
+                            prets = pretsLines.slice(1).map(line => {
+                                const parts = parseCSVLine(line);
+                                if (parts.length < 6) return null;
+                                const id      = parseInt(parts[0]) || Date.now();
+                                const nom     = sanitizeStr(parts[1]) || 'Prêt';
+                                const montant = parseFloat(parts[2]) || 0;
+                                const taux    = parseFloat(parts[3]) || 0;
+                                const duree   = parseInt(parts[4]) || 0;
+                                const dateDebut = parts[5].trim();
+                                const depense = parseFloat(parts[6]) || 0;
+                                if (!montant || !duree || !dateDebut) return null;
+                                return { id, nom, montant, taux, duree, dateDebut, depense };
+                            }).filter(Boolean);
+                            if (prets.length > 0) {
+                                localStorage.setItem('finance-prets', JSON.stringify(prets));
+                                console.log('Prêts importés:', prets.length);
+                            }
+                        } catch(err) {
+                            console.warn('Prêts import failed:', err);
+                        }
+                    }
 
                     // ── 4. Parser le patrimoine (comptes) ────────────────────
                     if (patrimoineLines.length >= 2) {
@@ -4231,7 +4630,7 @@ window.closeHelp = function() {
                     y: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor() } },
                     x: { grid: { display: false }, ticks: { color: chartTextColor() } }
                 },
-                plugins: { legend: { labels: { color: chartTextColor() } } },
+                plugins: { legend: { labels: { color: chartTextColor() } } , zoom: zoomOptions('chartAnneeBar')},
                 onClick: (evt, elements) => {
                     if (!elements.length) return;
                     const key = _anneeLabels[elements[0].index]; // e.g. "2025-01"
@@ -4270,7 +4669,7 @@ window.closeHelp = function() {
                     x: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor() } },
                     y: { grid: { display: false }, ticks: { color: chartTextColor() } }
                 },
-                plugins: { legend: { display: false } },
+                plugins: { legend: { display: false } , zoom: zoomOptions('chartAnneeMoyennes')},
                 onClick: (evt, elements) => {
                     if (!elements.length) return;
                     const cat = _catAvgLabels[elements[0].index];
@@ -4359,7 +4758,7 @@ window.closeHelp = function() {
                         y: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor() } },
                         x: { grid: { display: false }, ticks: { color: chartTextColor() } }
                     },
-                    plugins: { legend: { labels: { color: chartTextColor() } } },
+                    plugins: { legend: { labels: { color: chartTextColor() } } , zoom: zoomOptions('chartPeriodeCumul')},
                     onClick: (evt, elements) => {
                         if (!elements.length) return;
                         const d = cumulData[elements[0].index];
@@ -4417,7 +4816,7 @@ window.closeHelp = function() {
                         y: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor() } },
                         x: { grid: { display: false }, ticks: { color: chartTextColor() } }
                     },
-                    plugins: { legend: { labels: { color: chartTextColor() } } },
+                    plugins: { legend: { labels: { color: chartTextColor() } } , zoom: zoomOptions('chartPeriodeHabits')},
                     onClick: (evt, elements) => {
                         if (!elements.length) return;
                         const catName = topCategories[elements[0].datasetIndex][0];
@@ -4492,11 +4891,375 @@ window.closeHelp = function() {
         }
     }
 
-    function renderPatrimoine() {
-        const total = patrimoine.reduce((sum, b) => sum + b.solde, 0);
-        document.getElementById('patrimoine-total').textContent = `${total.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €`;
+    // ===== LOAN CALCULATIONS =====
+    function calcMensualite(montant, tauxAnnuel, dureeAns) {
+        const n = dureeAns * 12;
+        if (tauxAnnuel === 0) return montant / n;
+        const r = tauxAnnuel / 100 / 12;
+        return montant * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
+    }
 
-        // ── Render dynamic account list ──
+    function calcCapitalRestant(montant, tauxAnnuel, dureeAns, dateDebut, dateRef) {
+        const r = tauxAnnuel / 100 / 12;
+        const n = dureeAns * 12;
+        const mensualite = calcMensualite(montant, tauxAnnuel, dureeAns);
+        const d0 = new Date(dateDebut);
+        const dRef = dateRef || new Date();
+        let moisEcoules = (dRef.getFullYear() - d0.getFullYear()) * 12 + (dRef.getMonth() - d0.getMonth());
+        moisEcoules = Math.max(0, Math.min(moisEcoules, n));
+        if (tauxAnnuel === 0) return Math.max(0, montant - mensualite * moisEcoules);
+        return Math.max(0, montant * Math.pow(1 + r, moisEcoules) - mensualite * (Math.pow(1 + r, moisEcoules) - 1) / r);
+    }
+
+    function totalCapitalRestant(dateRef) {
+        return prets.reduce((s, p) => s + calcCapitalRestant(p.montant, p.taux, p.duree, p.dateDebut, dateRef), 0);
+    }
+
+    // ===== PRETS UI =====
+    function openAddPretForm() {
+        const form = document.getElementById('pret-add-form');
+        if (form) { form.style.display = ''; document.getElementById('pret-new-date').value = new Date().toISOString().split('T')[0]; }
+    }
+    function closeAddPretForm() {
+        const form = document.getElementById('pret-add-form');
+        if (form) form.style.display = 'none';
+    }
+
+    function addPret() {
+        const nom     = (document.getElementById('pret-new-nom').value || '').trim() || 'Prêt';
+        const montant = parseFloat(document.getElementById('pret-new-montant').value) || 0;
+        const taux    = parseFloat(document.getElementById('pret-new-taux').value) || 0;
+        const duree   = parseInt(document.getElementById('pret-new-duree').value) || 0;
+        const date    = document.getElementById('pret-new-date').value;
+        const depense = parseFloat(document.getElementById('pret-new-depense').value) || 0;
+        if (!montant || !duree || !date) { alert('Veuillez remplir : Montant, Durée et Date de début.'); return; }
+        prets.push({ id: Date.now(), nom, montant, taux, duree, dateDebut: date, depense });
+        closeAddPretForm();
+        document.getElementById('pret-new-nom').value = '';
+        document.getElementById('pret-new-montant').value = '';
+        document.getElementById('pret-new-taux').value = '';
+        document.getElementById('pret-new-duree').value = '';
+        document.getElementById('pret-new-depense').value = '';
+        saveToLocalStorage();
+        renderPatrimoine();
+    }
+
+    function deletePret(id) {
+        prets = prets.filter(p => p.id !== id);
+        saveToLocalStorage();
+        renderPatrimoine();
+    }
+
+    function openPretEditModal(id) {
+        const p = prets.find(pr => pr.id === id);
+        if (!p) return;
+        document.getElementById('pret-edit-id').value = id;
+        document.getElementById('pret-edit-nom').value = p.nom;
+        document.getElementById('pret-edit-montant').value = p.montant;
+        document.getElementById('pret-edit-taux').value = p.taux;
+        document.getElementById('pret-edit-duree').value = p.duree;
+        document.getElementById('pret-edit-date').value = p.dateDebut;
+        document.getElementById('pret-edit-depense').value = p.depense || 0;
+        const modal = document.getElementById('pret-edit-modal');
+        modal.style.display = 'flex';
+    }
+
+    function closePretEditModal() {
+        document.getElementById('pret-edit-modal').style.display = 'none';
+    }
+
+    function savePretEdit() {
+        const id = parseInt(document.getElementById('pret-edit-id').value);
+        const idx = prets.findIndex(p => p.id === id);
+        if (idx === -1) return;
+        const nom     = (document.getElementById('pret-edit-nom').value || '').trim() || 'Prêt';
+        const montant = parseFloat(document.getElementById('pret-edit-montant').value) || 0;
+        const taux    = parseFloat(document.getElementById('pret-edit-taux').value) || 0;
+        const duree   = parseInt(document.getElementById('pret-edit-duree').value) || 0;
+        const date    = document.getElementById('pret-edit-date').value;
+        const depense = parseFloat(document.getElementById('pret-edit-depense').value) || 0;
+        if (!montant || !duree || !date) { alert('Veuillez remplir : Montant, Durée et Date de début.'); return; }
+        prets[idx] = { ...prets[idx], nom, montant, taux, duree, dateDebut: date, depense };
+        saveToLocalStorage();
+        closePretEditModal();
+        renderPatrimoine();
+    }
+
+    // ── Zoom helpers ──────────────────────────────────────────────
+    function zoomOptions(chartKey) {
+        // Retourner les options zoom uniquement si le plugin est chargé
+        if (typeof Chart === 'undefined' || !Chart.registry || !Chart.registry.plugins.get('zoom')) {
+            return {};
+        }
+        return {
+            zoom: {
+                wheel: { enabled: true, speed: 0.08 },
+                pinch: { enabled: true },
+                mode: 'x',
+                onZoom: () => showZoomReset(chartKey)
+            },
+            pan: {
+                enabled: true,
+                mode: 'x',
+                onPan: () => showZoomReset(chartKey)
+            }
+        };
+    }
+
+    function showZoomReset(chartKey) {
+        const btn = document.getElementById('zoom-reset-' + chartKey);
+        if (btn) btn.style.opacity = '1';
+    }
+
+    function resetChartZoom(chartKey) {
+        const chart = chartInstances[chartKey] || customChartInstances?.[chartKey];
+        if (chart && chart.resetZoom) {
+            chart.resetZoom();
+            const btn = document.getElementById('zoom-reset-' + chartKey);
+            if (btn) btn.style.opacity = '0.35';
+        }
+    }
+
+    function updatePretDepense(id, val) {
+        const p = prets.find(p => p.id === id);
+        if (p) { p.depense = parseFloat(val) || 0; saveToLocalStorage(); renderPatrimoine(); }
+    }
+
+    // ===== PRET DETAIL MODAL =====
+    function openPretDetailModal(id) {
+        const p = prets.find(pr => pr.id === id);
+        if (!p) return;
+        const sym = (typeof appSettings !== 'undefined' && appSettings.currency) ? appSettings.currency : '€';
+        const fmt2 = v => v.toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ' + sym;
+        const fmt0 = v => v.toLocaleString('fr-FR', {minimumFractionDigits:0, maximumFractionDigits:0}) + ' ' + sym;
+        const now = new Date();
+        const n = p.duree * 12;
+        const r = p.taux / 100 / 12;
+        const mensualite = calcMensualite(p.montant, p.taux, p.duree);
+        const restant = calcCapitalRestant(p.montant, p.taux, p.duree, p.dateDebut, now);
+        const d0 = new Date(p.dateDebut);
+        const dFin = new Date(d0.getFullYear(), d0.getMonth() + n, 1);
+        const moisEcoules = Math.max(0, Math.min(n, (now.getFullYear() - d0.getFullYear()) * 12 + (now.getMonth() - d0.getMonth())));
+        const moisRestants = Math.max(0, n - moisEcoules);
+
+        // Total remboursé et intérêts payés à ce jour
+        const totalRembourse = mensualite * moisEcoules;
+        const capitalRembourse = p.montant - restant;
+        const interetsPaies = Math.max(0, totalRembourse - capitalRembourse);
+
+        // Total coût sur toute la durée
+        const coutTotal = mensualite * n;
+        const interetsTotal = Math.max(0, coutTotal - p.montant);
+
+        // Décomposition mensualité (mois en cours)
+        const interetsMoisCourant = p.taux === 0 ? 0 : restant * r;
+        const capitalMoisCourant = mensualite - interetsMoisCourant;
+
+        // Part capital vs intérêts dans la mensualité
+        const pctCapital = mensualite > 0 ? (capitalMoisCourant / mensualite * 100) : 100;
+        const pctInterets = 100 - pctCapital;
+
+        // Tableau de jalons (début, mi-parcours, fin)
+        const milestones = [];
+        [0, Math.floor(n/4), Math.floor(n/2), Math.floor(3*n/4), n].forEach(m => {
+            const dM = new Date(d0.getFullYear(), d0.getMonth() + m, 1);
+            const cap = calcCapitalRestant(p.montant, p.taux, p.duree, p.dateDebut, dM);
+            const paid = mensualite * m;
+            const intPaid = Math.max(0, paid - (p.montant - cap));
+            milestones.push({ label: dM.toLocaleDateString('fr-FR',{month:'short',year:'numeric'}), restant: cap, interets: intPaid, mois: m });
+        });
+
+        document.getElementById('pret-detail-title').textContent = '🏦 ' + p.nom;
+        document.getElementById('pret-detail-body').innerHTML = `
+            <!-- Résumé général -->
+            <div class="pret-stat-grid">
+                <div class="pret-stat-box">
+                    <div class="pret-stat-label">Montant emprunté</div>
+                    <div class="pret-stat-value amount-hidden" style="color:#00d9ff;">${fmt0(p.montant)}</div>
+                    <div class="pret-stat-sub">Taux ${p.taux}% · ${p.duree} ans</div>
+                </div>
+                <div class="pret-stat-box">
+                    <div class="pret-stat-label">Mensualité fixe</div>
+                    <div class="pret-stat-value amount-hidden" style="color:#a855f7;">${fmt2(mensualite)}</div>
+                    <div class="pret-stat-sub">${n} mensualités au total</div>
+                </div>
+                <div class="pret-stat-box">
+                    <div class="pret-stat-label">Coût total du crédit</div>
+                    <div class="pret-stat-value amount-hidden" style="color:#fb923c;">${fmt0(coutTotal)}</div>
+                    <div class="pret-stat-sub">Capital + intérêts</div>
+                </div>
+                <div class="pret-stat-box">
+                    <div class="pret-stat-label">Total intérêts</div>
+                    <div class="pret-stat-value amount-hidden" style="color:#ef4444;">${fmt0(interetsTotal)}</div>
+                    <div class="pret-stat-sub">${p.montant > 0 ? (interetsTotal/p.montant*100).toFixed(1) : 0}% du capital</div>
+                </div>
+            </div>
+
+            <!-- Décomposition mensualité du mois en cours -->
+            <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-secondary);margin-bottom:8px;">Mensualité du mois en cours</div>
+            <div class="pret-amort-bar">
+                <div class="pret-amort-bar-capital" style="width:${pctCapital.toFixed(1)}%;"></div>
+                <div class="pret-amort-bar-interets" style="width:${pctInterets.toFixed(1)}%;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:16px;">
+                <span style="color:#00d9ff;">▪ Capital <span class="amount-hidden">${fmt2(capitalMoisCourant)}</span> (${pctCapital.toFixed(0)}%)</span>
+                <span style="color:#fb923c;">▪ Intérêts <span class="amount-hidden">${fmt2(interetsMoisCourant)}</span> (${pctInterets.toFixed(0)}%)</span>
+            </div>
+
+            <!-- À ce jour -->
+            <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-secondary);margin-bottom:8px;">À ce jour (${moisEcoules} mois remboursés)</div>
+            <div class="pret-stat-grid" style="margin-bottom:16px;">
+                <div class="pret-stat-box">
+                    <div class="pret-stat-label">Capital remboursé</div>
+                    <div class="pret-stat-value amount-hidden" style="color:#10b981;font-size:0.95rem;">${fmt0(capitalRembourse)}</div>
+                </div>
+                <div class="pret-stat-box">
+                    <div class="pret-stat-label">Intérêts payés</div>
+                    <div class="pret-stat-value amount-hidden" style="color:#fb923c;font-size:0.95rem;">${fmt0(interetsPaies)}</div>
+                </div>
+                <div class="pret-stat-box">
+                    <div class="pret-stat-label">Capital restant dû</div>
+                    <div class="pret-stat-value amount-hidden" style="color:#fb923c;font-size:0.95rem;">${fmt0(restant)}</div>
+                </div>
+                <div class="pret-stat-box">
+                    <div class="pret-stat-label">Mois restants</div>
+                    <div class="pret-stat-value" style="color:var(--accent-blue);font-size:0.95rem;">${moisRestants}</div>
+                    <div class="pret-stat-sub">Fin ${dFin.toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}</div>
+                </div>
+            </div>
+
+            <!-- Jalons dans le temps -->
+            <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-secondary);margin-bottom:8px;">Évolution du capital restant dû</div>
+            <div>
+                ${milestones.map((ms, i) => {
+                    const isCurrent = ms.mois <= moisEcoules && (i === milestones.length-1 || milestones[i+1].mois > moisEcoules);
+                    return `<div class="pret-timeline-row" style="${isCurrent ? 'color:var(--accent-blue);font-weight:600;' : ''}">
+                        <span>${ms.label}${isCurrent ? ' ← maintenant' : ''}</span>
+                        <span class="amount-hidden">${fmt0(ms.restant)}</span>
+                        <span style="color:#fb923c;font-size:0.75rem;"><span class="amount-hidden">${fmt0(ms.interets)}</span> int. cumulés</span>
+                    </div>`;
+                }).join('')}
+            </div>
+        `;
+
+        const modal = document.getElementById('pret-detail-modal');
+        modal.style.display = 'flex';
+    }
+
+    function closePretDetailModal() {
+        document.getElementById('pret-detail-modal').style.display = 'none';
+    }
+
+    function renderPrets() {
+        const listEl = document.getElementById('prets-list');
+        const emptyEl = document.getElementById('prets-empty');
+        if (!listEl) return;
+        if (!prets || prets.length === 0) {
+            listEl.innerHTML = '';
+            if (emptyEl) emptyEl.style.display = '';
+            return;
+        }
+        if (emptyEl) emptyEl.style.display = 'none';
+        const sym = (typeof appSettings !== 'undefined' && appSettings.currency) ? appSettings.currency : '€';
+        const now = new Date();
+        listEl.innerHTML = prets.map(p => {
+            const mensualite = calcMensualite(p.montant, p.taux, p.duree);
+            const restant = calcCapitalRestant(p.montant, p.taux, p.duree, p.dateDebut, now);
+            const n = p.duree * 12;
+            const coutTotal = mensualite * n;
+            const interetsTotal = Math.max(0, coutTotal - p.montant);
+            const capitalRembourse = p.montant - restant;
+            const pct = Math.min(100, p.montant > 0 ? (capitalRembourse / p.montant) * 100 : 0);
+            const d0 = new Date(p.dateDebut);
+            const dFin = new Date(d0.getFullYear(), d0.getMonth() + n, 1);
+            const moisRestants = Math.max(0, (dFin.getFullYear() - now.getFullYear()) * 12 + (dFin.getMonth() - now.getMonth()));
+            const fmt0 = v => v.toLocaleString('fr-FR', {minimumFractionDigits:0, maximumFractionDigits:0}) + ' ' + sym;
+            const fmt2 = v => v.toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ' + sym;
+            return `<div class="pret-card">
+                <div class="pret-card-header">
+                    <div class="pret-card-title">
+                        🏦 ${p.nom}
+                        <span class="pret-card-badge">${p.taux}% · ${p.duree} ans</span>
+                        <button class="pret-info-btn" onclick="openPretDetailModal(${p.id})" title="Voir le détail du prêt">i</button>
+                    </div>
+                    <button class="pret-edit-btn" onclick="openPretEditModal(${p.id})" title="Modifier ce prêt">✏️ Modifier</button>
+                    <button class="pat-del-btn" onclick="deletePret(${p.id})" title="Supprimer ce prêt">🗑</button>
+                </div>
+                <div class="pret-progress-bar"><div class="pret-progress-fill" style="width:${pct.toFixed(1)}%"></div></div>
+                <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:var(--text-secondary);margin-bottom:10px;">
+                    <span>Capital remboursé ${pct.toFixed(1)}%</span>
+                    <span>Fin : ${dFin.toLocaleDateString('fr-FR',{month:'short',year:'numeric'})} (${moisRestants} mois)</span>
+                </div>
+                <div class="pret-grid">
+                    <div class="pret-kpi">
+                        <div class="pret-kpi-label">Mensualité</div>
+                        <div class="pret-kpi-value amount-hidden" style="color:#a855f7;">${fmt2(mensualite)}</div>
+                    </div>
+                    <div class="pret-kpi">
+                        <div class="pret-kpi-label">Capital restant dû</div>
+                        <div class="pret-kpi-value amount-hidden" style="color:#fb923c;">${fmt0(restant)}</div>
+                    </div>
+                    <div class="pret-kpi">
+                        <div class="pret-kpi-label">Intérêts totaux</div>
+                        <div class="pret-kpi-value amount-hidden" style="color:#ef4444;">${fmt0(interetsTotal)}</div>
+                    </div>
+                </div>
+                <div class="pret-depense-row">
+                    <label>💸 Dépensé du prêt :</label>
+                    <input type="number" class="amount-hidden" value="${p.depense || 0}" min="0" step="100"
+                        onchange="updatePretDepense(${p.id}, this.value)"
+                        style="max-width:140px;">
+                    <span style="font-size:0.78rem;color:var(--text-secondary);">${sym}</span>
+                    <span style="font-size:0.75rem;color:var(--text-secondary);margin-left:4px;">
+                        (reste en poche : <span class="amount-hidden">${fmt0(Math.max(0, p.montant - (p.depense||0)))}</span>)
+                    </span>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function renderPatrimoine() {
+        const sym = (typeof appSettings !== 'undefined' && appSettings.currency) ? appSettings.currency : '€';
+        const fmt = v => v.toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ' + sym;
+
+        const now = new Date();
+        const totalComptes = patrimoine.reduce((sum, b) => sum + b.solde, 0);
+        const totalDette   = totalCapitalRestant(now);
+        const totalPerso   = totalComptes - totalDette;
+        const hasLoans     = prets.length > 0;
+
+        // ── KPI boxes — affichage conditionnel selon présence de prêts ──
+        const elReel  = document.getElementById('patrimoine-total');
+        const elDette = document.getElementById('pat-kpi-dette');
+        const elPerso = document.getElementById('pat-kpi-perso');
+        const boxDette = elDette?.closest('.stat-box');
+        const boxPerso = elPerso?.closest('.stat-box');
+
+        if (elReel)  elReel.textContent  = fmt(totalComptes);
+        if (elDette) elDette.textContent  = fmt(totalDette);
+        if (elPerso) elPerso.textContent  = fmt(totalPerso);
+
+        // Masquer/afficher les 2 boxes prêt
+        if (boxDette) boxDette.style.display = hasLoans ? '' : 'none';
+        if (boxPerso) boxPerso.style.display = hasLoans ? '' : 'none';
+
+        // Adapter la grille : 1 colonne si pas de prêts, 3 si prêts
+        const kpiRow = document.querySelector('.loan-kpi-row');
+        if (kpiRow) kpiRow.style.gridTemplateColumns = hasLoans ? 'repeat(3,1fr)' : '1fr';
+
+        // Légende graphique — masquer les 2 courbes prêt si aucun prêt
+        const chartLegend = document.querySelector('.pat-chart-legend');
+        if (chartLegend) chartLegend.style.display = hasLoans ? 'flex' : 'none';
+
+        // Sub-labels
+        const subReel  = document.getElementById('pat-kpi-reel-sub');
+        const subDette = document.getElementById('pat-kpi-dette-sub');
+        const subPerso = document.getElementById('pat-kpi-perso-sub');
+        if (subReel)  subReel.textContent  = patrimoine.length + ' compte' + (patrimoine.length !== 1 ? 's' : '');
+        if (subDette) subDette.textContent = prets.length + ' prêt' + (prets.length !== 1 ? 's' : '');
+        if (subPerso) subPerso.textContent = 'Patrimoine − dette';
+
+        // ── Render accounts list ──
         const listEl = document.getElementById('patrimoine-banques-list');
         if (listEl) {
             const COLORS = ['#0ea5e9','#a855f7','#ec4899','#10b981','#f59e0b','#00d9ff','#ef4444','#94a3b8'];
@@ -4515,88 +5278,156 @@ window.closeHelp = function() {
         // ── Pie chart ──
         const CHART_COLORS = ['#0ea5e9','#a855f7','#ec4899','#10b981','#f59e0b','#00d9ff','#ef4444','#94a3b8'];
         destroyChart('chartPatrimoinePie');
-        chartInstances.chartPatrimoinePie = new Chart(document.getElementById('chart-patrimoine-pie'), {
-            type: 'pie',
-            data: {
-                labels: patrimoine.map(b => b.nom),
-                datasets: [{
-                    data: patrimoine.map(b => b.solde),
-                    backgroundColor: patrimoine.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
-                    borderColor: 'rgba(10, 14, 39, 1)',
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom', labels: { color: chartTextColor() } } }
-            }
+        if (patrimoine.length > 0) {
+            chartInstances.chartPatrimoinePie = new Chart(document.getElementById('chart-patrimoine-pie'), {
+                type: 'pie',
+                data: {
+                    labels: patrimoine.map(b => b.nom),
+                    datasets: [{
+                        data: patrimoine.map(b => b.solde),
+                        backgroundColor: patrimoine.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
+                        borderColor: 'rgba(10, 14, 39, 1)', borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { color: chartTextColor() } } }
+                }
+            });
+        }
+
+        // ── 3-curve evolution chart (adaptatif selon présence prêts) ──
+        const curKey = currentMonthKey();
+        let allMonthKeys = Object.keys(patrimoineHistorique).sort();
+
+        let maxFutureDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        prets.forEach(p => {
+            const d0 = new Date(p.dateDebut);
+            const dFin = new Date(d0.getFullYear(), d0.getMonth() + p.duree * 12, 1);
+            if (dFin > maxFutureDate) maxFutureDate = dFin;
         });
 
-        // ── Evolution chart — données CSV uniquement ──
-        const histKeys = Object.keys(patrimoineHistorique).sort();
-        const curKey = currentMonthKey();
-        const hasCurrent = patrimoineHistorique[curKey] !== undefined;
+        const futureKeys = [];
+        const maxMonths = Math.min(360, (maxFutureDate.getFullYear() - now.getFullYear()) * 12 + (maxFutureDate.getMonth() - now.getMonth()) + 1);
+        for (let i = 0; i <= maxMonths; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+            const k = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+            if (!allMonthKeys.includes(k)) futureKeys.push(k);
+        }
 
-        // Message si le mois en cours n'a pas de valeur
+        const allKeys = [...new Set([...allMonthKeys, ...futureKeys])].sort();
+
+        // Alert mois courant
         const alertEl = document.getElementById('patrimoine-month-alert');
         if (alertEl) {
-            if (!hasCurrent) {
-                const [y, m] = curKey.split('-');
-                const label = new Date(+y, +m-1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+            const hasCurrent = patrimoineHistorique[curKey] !== undefined;
+            if (!hasCurrent && patrimoine.length > 0) {
                 alertEl.style.display = 'block';
+                const [y, m] = curKey.split('-');
+                const label = new Date(+y, +m-1).toLocaleDateString('fr-FR', {month:'long', year:'numeric'});
                 alertEl.innerHTML = `⚠️ Aucune valeur enregistrée pour <strong>${label}</strong>. Modifiez vos comptes et cliquez sur 💾 Sauvegarder pour créer l'entrée de ce mois.`;
             } else {
                 alertEl.style.display = 'none';
             }
         }
 
-        if (histKeys.length > 0) {
-            const histLabels = histKeys.map(k => {
+        if (allKeys.length > 0) {
+            const labels = allKeys.map(k => {
                 const [y, m] = k.split('-');
-                return new Date(+y, +m-1).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
+                return new Date(+y, +m-1).toLocaleDateString('fr-FR', {month:'short', year:'2-digit'});
             });
-            const histValues = histKeys.map(k => patrimoineHistorique[k]);
+
+            const dataReel  = [];
+            const dataDette = [];
+            const dataPerso = [];
+
+            allKeys.forEach(k => {
+                const [y, m] = k.split('-');
+                const datePoint = new Date(+y, +m-1, 1);
+                const dette = totalCapitalRestant(datePoint);
+                const reel  = patrimoineHistorique[k] !== undefined ? patrimoineHistorique[k] : totalComptes;
+                dataReel.push(Math.round(reel * 100) / 100);
+                dataDette.push(Math.round(dette * 100) / 100);
+                dataPerso.push(Math.round((reel - dette) * 100) / 100);
+            });
+
+            const curIdx = allKeys.indexOf(curKey);
+
+            // Construire les datasets selon présence de prêts
+            const datasets = [
+                {
+                    label: hasLoans ? 'Argent réel (comptes)' : 'Patrimoine',
+                    data: dataReel,
+                    borderColor: '#00d9ff',
+                    backgroundColor: 'rgba(0,217,255,0.06)',
+                    borderWidth: 2, tension: 0.3, fill: false,
+                    pointRadius: allKeys.map((k,i) => i === curIdx ? 5 : 2),
+                    pointBackgroundColor: allKeys.map((k,i) => i === curIdx ? '#10b981' : '#00d9ff'),
+                }
+            ];
+
+            if (hasLoans) {
+                datasets.push({
+                    label: 'Argent perso (net)',
+                    data: dataPerso,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16,185,129,0.06)',
+                    borderWidth: 2, tension: 0.3, fill: false,
+                    pointRadius: allKeys.map((k,i) => i === curIdx ? 5 : 2),
+                    pointBackgroundColor: '#10b981',
+                });
+                datasets.push({
+                    label: 'Capital restant dû',
+                    data: dataDette,
+                    borderColor: '#fb923c',
+                    backgroundColor: 'rgba(251,146,60,0.04)',
+                    borderWidth: 2, tension: 0.3, fill: false,
+                    borderDash: [5, 4],
+                    pointRadius: allKeys.map((k,i) => i === curIdx ? 5 : 2),
+                    pointBackgroundColor: '#fb923c',
+                });
+            }
 
             destroyChart('chartPatrimoineEvolution');
             chartInstances.chartPatrimoineEvolution = new Chart(document.getElementById('chart-patrimoine-evolution'), {
                 type: 'line',
-                data: {
-                    labels: histLabels,
-                    datasets: [{
-                        label: 'Patrimoine (€)',
-                        data: histValues,
-                        borderColor: '#00d9ff',
-                        backgroundColor: 'rgba(0, 217, 255, 0.05)',
-                        tension: 0.4,
-                        fill: true,
-                        pointRadius: 3,
-                        pointBackgroundColor: histKeys.map(k => k === curKey ? '#10b981' : '#00d9ff'),
-                        pointRadius: histKeys.map(k => k === curKey ? 5 : 3),
-                    }]
-                },
+                data: { labels, datasets },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
                     scales: {
-                        y: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor() } },
-                        x: { grid: { display: false }, ticks: { color: chartTextColor() } }
+                        y: {
+                            grid: { color: chartGridColor() },
+                            ticks: { color: chartTextColor(), callback: v => v.toLocaleString('fr-FR', {maximumFractionDigits:0}) + ' ' + sym }
+                        },
+                        x: { grid: { display: false }, ticks: { color: chartTextColor(), maxTicksLimit: 12 } }
                     },
-                    plugins: { legend: { labels: { color: chartTextColor() } } }
+                    plugins: {
+                        legend: { labels: { color: chartTextColor(), boxWidth: 14 } },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ' ' + ctx.dataset.label + ' : ' + ctx.parsed.y.toLocaleString('fr-FR', {maximumFractionDigits:0}) + ' ' + sym
+                            }
+                        }
+                    , zoom: zoomOptions('chartPatrimoineEvolution')}
                 }
             });
         }
 
+        // ── Render loans ──
+        renderPrets();
+
         // ── Detail table ──
         document.getElementById('table-patrimoine-detail').innerHTML = patrimoine.map(b => {
-            const pct = total > 0 ? (b.solde / total * 100).toFixed(1) : '0.0';
+            const pct = totalComptes > 0 ? (b.solde / totalComptes * 100).toFixed(1) : '0.0';
             return `<tr>
                 <td>${b.nom}</td>
-                <td><span class="amount-hidden">${b.solde.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €</span></td>
+                <td><span class="amount-hidden">${b.solde.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ${sym}</span></td>
                 <td>${pct}%</td>
             </tr>`;
         }).join('');
     }
+
 
     function renderTransactions() {
         const sorted = [...transactions].sort((a, b) => {
@@ -5011,6 +5842,16 @@ window.closeHelp = function() {
                 csv += 'Mois,Patrimoine reconstitue\n';
                 histKeys.forEach(k => {
                     csv += `${k},${patrimoineHistorique[k]}\n`;
+                });
+            }
+
+            // Section prêts bancaires
+            if (prets && prets.length > 0) {
+                csv += '\n---PRETS---\n';
+                csv += 'id,nom,montant,taux,duree,dateDebut,depense\n';
+                prets.forEach(p => {
+                    const nomQ = (p.nom || '').replace(/"/g, '""');
+                    csv += `${p.id},"${nomQ}",${p.montant},${p.taux},${p.duree},${p.dateDebut},${p.depense || 0}\n`;
                 });
             }
 
@@ -5459,6 +6300,7 @@ window.closeHelp = function() {
             patrimoineNextId = 1;
             lastUpdateDate = null;
             patrimoineHistorique = {};
+            prets = [];
             // Réinitialiser les blocs personnalisés
             if (typeof customBlocks !== 'undefined') customBlocks = [];
             if (typeof customChartInstances !== 'undefined') {
@@ -5469,6 +6311,7 @@ window.closeHelp = function() {
             // Clear localStorage — y compris la date de MAJ
             localStorage.removeItem('finance-data');
             localStorage.removeItem('finance-patrimoine');
+            localStorage.removeItem('finance-prets');
             localStorage.removeItem('finance-last-update');
             localStorage.removeItem('finance-sanitize-version');
             localStorage.removeItem('finance-patrimoine-historique');
@@ -6758,6 +7601,8 @@ window.closeHelp = function() {
 
     function renderBudgetRows() {
         const budgetCats = appSettings.categories.filter(c => c !== 'Entrée');
+        const el = document.getElementById('budget-rows-container');
+        if (!el) return;
         el.innerHTML = budgetCats.map(cat => `
             <div class="budget-row">
                 <span style="font-size:0.88rem;font-weight:500;">${cat}</span>
@@ -7091,7 +7936,11 @@ window.closeHelp = function() {
         // Fermer le modal avec la touche Échap
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                if (document.getElementById('edit-tx-modal').style.display !== 'none') {
+                if (document.getElementById('pret-edit-modal') && document.getElementById('pret-edit-modal').style.display !== 'none') {
+                    closePretEditModal();
+                } else if (document.getElementById('pret-detail-modal') && document.getElementById('pret-detail-modal').style.display !== 'none') {
+                    closePretDetailModal();
+                } else if (document.getElementById('edit-tx-modal').style.display !== 'none') {
                     closeEditModal();
                 } else if (document.getElementById('block-detail-modal').style.display !== 'none') {
                     closeDetailModal();
@@ -7223,7 +8072,7 @@ function _buildDemoData() {
 
 function _buildDemoPatrimoine() {
     return [
-        { id:1, nom:'Compte courant',    solde:2840  },
+        { id:1, nom:'Compte courant',    solde:4840  },
         { id:2, nom:'Livret A',          solde:8500  },
         { id:3, nom:'PEA Bourse',        solde:14200 },
         { id:4, nom:'Assurance vie',     solde:22000 },
@@ -7231,13 +8080,25 @@ function _buildDemoPatrimoine() {
     ];
 }
 
+function _buildDemoPrets() {
+    const now = new Date();
+    const dateImmo = new Date(now.getFullYear() - 3, now.getMonth(), 1).toISOString().split('T')[0];
+    const dateConso = new Date(now.getFullYear() - 1, now.getMonth() - 2, 1).toISOString().split('T')[0];
+    return [
+        { id:1001, nom:'Prêt immobilier', montant:200000, taux:1.8, duree:20, dateDebut:dateImmo,  depense:200000 },
+        { id:1002, nom:'Prêt conso',      montant:15000,  taux:4.5, duree:5,  dateDebut:dateConso, depense:12000  },
+    ];
+}
+
 function _buildDemoHistorique() {
     const now = new Date();
     const hist = {};
-    for (let i = 5; i >= 0; i--) {
+    // Base = total comptes démo = 55840. On simule une légère croissance mensuelle.
+    const base = 55840;
+    for (let i = 11; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-        hist[k] = 50000 + (5 - i) * 1850 + Math.round(Math.random() * 400 - 200);
+        const k = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+        hist[k] = Math.round((base - i * 350 + (11-i) * 120) * 100) / 100;
     }
     return hist;
 }
@@ -7263,6 +8124,7 @@ window.enterDemoMode = function() {
     // Charger les données de démo en mémoire (pas dans localStorage)
     transactions         = _buildDemoData();
     patrimoine           = _buildDemoPatrimoine();
+    prets                = _buildDemoPrets();
     patrimoineHistorique = _buildDemoHistorique();
     patrimoineNextId     = 6;
     customBlocks         = _buildDemoCustomBlocks();
@@ -7303,6 +8165,7 @@ window.exitDemoMode = function() {
     // Vider les données de démo de la mémoire
     transactions         = [];
     patrimoine           = [];
+    prets                = [];
     patrimoineHistorique = {};
     customBlocks         = [];
     lastUpdateDate       = null;
@@ -7369,7 +8232,6 @@ window.confirmAirplaneImport = function() {
 };
 
 window.enterLocalMode = function(file) {
-    closeAirplaneModal();
     window._localMode = true;
 
     // Bloquer cloud
