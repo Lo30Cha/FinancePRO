@@ -249,18 +249,53 @@
         .stat-change.negative { color: var(--danger); }
 
         /* ===== MONTH NAV ===== */
+        /* ── Navigation mois : toujours sur une seule ligne ── */
         .month-nav-card {
-            display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
-            padding: 11px 12px; background: var(--bg-secondary);
-            border: 1px solid var(--border); border-radius: 12px; margin-bottom: 14px;
+            display: flex;
+            flex-wrap: nowrap;       /* jamais de retour à la ligne */
+            align-items: center;
+            gap: 6px;
+            padding: 8px 10px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 14px;
+            min-width: 0;
         }
-        .month-nav-center { flex: 1 1 200px; text-align: center; min-width: 0; }
-        .month-nav-center .month-label { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 5px; }
-        .month-nav-center .selects-row { display: flex; gap: 6px; justify-content: center; }
-        .month-nav-center select { flex:1; min-width:0; max-width:105px; margin-bottom:0; font-size:0.8rem; padding:5px 7px; }
-        .month-nav-btn { flex-shrink:0; padding:7px 11px !important; font-size:0.8rem !important; width:auto !important; white-space:nowrap; }
-        .month-today-btn { flex:1 1 100%; order:10; }
-        @media (min-width: 500px) { .month-today-btn { flex:0 1 auto; order:0; } }
+        .month-nav-center {
+            flex: 1 1 0;             /* prend tout l'espace disponible */
+            min-width: 0;
+            text-align: center;
+        }
+        .month-nav-center .month-label {
+            font-size: clamp(0.72rem, 2.5vw, 0.95rem);
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .month-nav-center .selects-row { display: flex; gap: 4px; justify-content: center; }
+        .month-nav-center select {
+            flex: 1; min-width: 0; max-width: 90px;
+            margin-bottom: 0;
+            font-size: clamp(0.68rem, 2vw, 0.8rem);
+            padding: 4px 4px;
+        }
+        .month-nav-btn {
+            flex-shrink: 0;
+            padding: 6px 8px !important;
+            font-size: clamp(0.68rem, 2vw, 0.8rem) !important;
+            width: auto !important;
+            white-space: nowrap;
+            min-width: 0;
+        }
+        /* Bouton Aujourd'hui : reste sur la même ligne, jamais order:10 */
+        .month-today-btn {
+            flex: 0 0 auto;
+            order: 0;
+        }
 
         /* ===== DROP ZONE ===== */
         .drop-zone { border: 1.5px dashed var(--border); border-radius: 12px; padding: 36px 20px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; margin-bottom: 16px; color: var(--text-secondary); }
@@ -774,30 +809,75 @@
             border-color: var(--accent-blue) !important;
             box-shadow: 0 0 8px var(--accent-subtle) !important;
         }
-        .pat-del-btn {
-            display: flex !important;
-            align-items: center;
-            justify-content: center;
-            background: rgba(239,68,68,0.1) !important;
-            border: 1px solid rgba(239,68,68,0.25) !important;
-            border-radius: 6px !important;
-            cursor: pointer !important;
-            font-size: 0.85rem;
-            color: var(--danger);
-            opacity: 0.7;
-            transition: all 0.2s;
-            padding: 0 !important;
-            width: 30px;
-            height: 30px;
-            line-height: 1;
+        /* ===== BOUTONS D'ACTION UNIFIÉS ===== */
+        /* Base commune */
+        .action-btn {
+            display: inline-flex;
+            align-items: center; justify-content: center;
+            gap: 4px;
+            height: 28px;
+            padding: 0 10px;
+            border-radius: 7px;
+            font-size: 0.75rem; font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
             flex-shrink: 0;
+            border: 1px solid;
+            transition: background 0.18s, border-color 0.18s, opacity 0.18s;
+            line-height: 1;
+            white-space: nowrap;
+        }
+        /* Modifier — neutre */
+        .action-btn-edit {
+            background: var(--accent-subtle);
+            border-color: var(--border);
+            color: var(--text-secondary);
+        }
+        .action-btn-edit:hover {
+            background: var(--accent-soft);
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+        }
+        /* Supprimer — danger */
+        .action-btn-delete {
+            background: rgba(239,68,68,0.07);
+            border-color: rgba(239,68,68,0.2);
+            color: var(--danger);
+        }
+        .action-btn-delete:hover {
+            background: rgba(239,68,68,0.18);
+            border-color: var(--danger);
+        }
+        /* Info — accent bleu */
+        .action-btn-info {
+            width: 28px; padding: 0;
+            border-radius: 50%;
+            background: rgba(0,217,255,0.07);
+            border-color: rgba(0,217,255,0.3);
+            color: var(--accent-blue);
+            font-weight: 700;
+            font-size: 0.72rem;
+        }
+        .action-btn-info:hover {
+            background: rgba(0,217,255,0.18);
+            border-color: var(--accent-blue);
+        }
+        /* Rétrocompat pat-del-btn */
+        .pat-del-btn {
+            display: inline-flex !important;
+            align-items: center; justify-content: center;
+            height: 28px; width: 28px; padding: 0;
+            border-radius: 7px;
+            background: rgba(239,68,68,0.07) !important;
+            border: 1px solid rgba(239,68,68,0.2) !important;
+            color: var(--danger);
+            cursor: pointer; font-size: 0.85rem;
+            flex-shrink: 0;
+            transition: background 0.18s, border-color 0.18s;
         }
         .pat-del-btn:hover {
-            opacity: 1 !important;
-            background: rgba(239,68,68,0.25) !important;
+            background: rgba(239,68,68,0.18) !important;
             border-color: var(--danger) !important;
-            transform: none !important;
-            box-shadow: none !important;
         }
         .pat-add-row {
             display: flex;
@@ -811,28 +891,6 @@
             .pat-add-row input, .pat-add-row button { width: 100%; }
         }
 
-        /* ===== BOUTON INFO PRÊT ===== */
-        .pret-info-btn {
-            width: 22px; height: 22px;
-            border-radius: 50%;
-            border: 1.5px solid rgba(0,217,255,0.45);
-            background: rgba(0,217,255,0.08);
-            color: #00d9ff;
-            font-size: 0.72rem;
-            font-weight: 700;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            transition: background 0.2s, border-color 0.2s;
-            font-family: 'Inter', sans-serif;
-            line-height: 1;
-        }
-        .pret-info-btn:hover {
-            background: rgba(0,217,255,0.2);
-            border-color: #00d9ff;
-        }
 
         /* ===== MODAL DÉTAIL PRÊT ===== */
         #pret-detail-modal {
@@ -2039,7 +2097,7 @@
 </div>
 
 <!-- MODAL: Édition prêt bancaire -->
-<div id="pret-edit-modal" onclick="if(event.target.id==='pret-edit-modal')closePretEditModal()">
+<div id="pret-edit-modal" style="display:none; position:fixed; inset:0; z-index:1070; background:rgba(0,0,0,0.75); align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(6px);" onclick="if(event.target.id==='pret-edit-modal')closePretEditModal()">
     <div class="pret-detail-inner">
         <div class="pret-detail-header">
             <h2>✏️ Modifier le prêt</h2>
@@ -2414,9 +2472,6 @@
 
         <div class="card">
             <h3>Revenus vs dépenses</h3>
-            <div class="chart-zoom-bar">
-                <button class="chart-zoom-reset" id="zoom-reset-chartAnneeBar" onclick="resetChartZoom('chartAnneeBar')" title="Réinitialiser le zoom">↺ Reset zoom</button>
-            </div>
             <div class="chart-container chart-container-tall">
                 <canvas id="chart-annee-bar"></canvas>
             </div>
@@ -2468,9 +2523,6 @@
 
         <div class="card">
             <h3>Épargne cumulée</h3>
-            <div class="chart-zoom-bar">
-                <button class="chart-zoom-reset" id="zoom-reset-chartPeriodeCumul" onclick="resetChartZoom('chartPeriodeCumul')" title="Réinitialiser le zoom">↺ Reset zoom</button>
-            </div>
             <div class="chart-container chart-container-tall">
                 <canvas id="chart-periode-cumul"></canvas>
             </div>
@@ -2479,9 +2531,6 @@
         <div class="grid-2">
             <div class="card">
                 <h3>Évolution des habitudes</h3>
-                <div class="chart-zoom-bar">
-                <button class="chart-zoom-reset" id="zoom-reset-chartPeriodeHabits" onclick="resetChartZoom('chartPeriodeHabits')" title="Réinitialiser le zoom">↺ Reset zoom</button>
-            </div>
             <div class="chart-container">
                     <canvas id="chart-periode-habits"></canvas>
                 </div>
@@ -2545,9 +2594,6 @@
                 <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:3px;background:#00d9ff;display:inline-block;border-radius:2px;"></span>Argent réel (comptes)</span>
                 <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:3px;background:#10b981;display:inline-block;border-radius:2px;"></span>Argent perso (net)</span>
                 <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:3px;background:#fb923c;display:inline-block;border-radius:2px;border-style:dashed;"></span>Capital restant dû</span>
-            </div>
-            <div class="chart-zoom-bar">
-                <button class="chart-zoom-reset" id="zoom-reset-chartPatrimoineEvolution" onclick="resetChartZoom('chartPatrimoineEvolution')" title="Réinitialiser le zoom">↺ Reset zoom</button>
             </div>
             <div class="chart-container chart-container-tall">
                 <canvas id="chart-patrimoine-evolution"></canvas>
@@ -4385,9 +4431,6 @@ window.closeHelp = function() {
         const nextIdx = TAB_ORDER.indexOf(tabId);
         const prevIdx = TAB_ORDER.indexOf(_currentTabId);
 
-        // Haptic feedback au changement d'onglet
-        if (typeof window._haptic === 'function') window._haptic('light');
-
         // Déplacer le rail horizontalement — translateX(-N * 100%)
         const rail = document.getElementById('tab-rail');
         if (rail) {
@@ -4467,6 +4510,22 @@ window.closeHelp = function() {
     function chartGridColor() {
         return getComputedStyle(document.documentElement)
             .getPropertyValue('--border').trim() || 'rgba(255,255,255,0.09)';
+    }
+
+    // Formatage axe Y : auto k€ si >= 1000
+    function fmtAxis(v, sym) {
+        const s = (typeof appSettings !== 'undefined' && appSettings.currency) ? appSettings.currency : (sym || '€');
+        const abs = Math.abs(v);
+        if (abs >= 1000000) return (v / 1000000).toLocaleString('fr-FR', {maximumFractionDigits: 1}) + ' M' + s;
+        if (abs >= 1000)    return (v / 1000).toLocaleString('fr-FR', {maximumFractionDigits: 1}) + ' k' + s;
+        return v.toLocaleString('fr-FR', {maximumFractionDigits: 0}) + ' ' + s;
+    }
+    function fmtTooltip(v, sym) {
+        const s = (typeof appSettings !== 'undefined' && appSettings.currency) ? appSettings.currency : (sym || '€');
+        const abs = Math.abs(v);
+        if (abs >= 1000000) return (v / 1000000).toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' M' + s;
+        if (abs >= 1000)    return (v / 1000).toLocaleString('fr-FR', {minimumFractionDigits: 1, maximumFractionDigits: 1}) + ' k' + s;
+        return v.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ' + s;
     }
 
     function renderMois() {
@@ -4627,7 +4686,7 @@ window.closeHelp = function() {
             options: {
                 responsive: true, maintainAspectRatio: false,
                 scales: {
-                    y: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor() } },
+                    y: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor(), callback: v => fmtAxis(v) } },
                     x: { grid: { display: false }, ticks: { color: chartTextColor() } }
                 },
                 plugins: { legend: { labels: { color: chartTextColor() } } , zoom: zoomOptions('chartAnneeBar')},
@@ -4666,7 +4725,7 @@ window.closeHelp = function() {
                 responsive: true, maintainAspectRatio: false,
                 indexAxis: 'y',
                 scales: {
-                    x: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor() } },
+                    x: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor(), callback: v => fmtAxis(v) } },
                     y: { grid: { display: false }, ticks: { color: chartTextColor() } }
                 },
                 plugins: { legend: { display: false } , zoom: zoomOptions('chartAnneeMoyennes')},
@@ -4755,7 +4814,7 @@ window.closeHelp = function() {
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     scales: {
-                        y: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor() } },
+                        y: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor(), callback: v => fmtAxis(v) } },
                         x: { grid: { display: false }, ticks: { color: chartTextColor() } }
                     },
                     plugins: { legend: { labels: { color: chartTextColor() } } , zoom: zoomOptions('chartPeriodeCumul')},
@@ -4813,7 +4872,7 @@ window.closeHelp = function() {
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     scales: {
-                        y: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor() } },
+                        y: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor(), callback: v => fmtAxis(v) } },
                         x: { grid: { display: false }, ticks: { color: chartTextColor() } }
                     },
                     plugins: { legend: { labels: { color: chartTextColor() } } , zoom: zoomOptions('chartPeriodeHabits')},
@@ -5180,10 +5239,12 @@ window.closeHelp = function() {
                     <div class="pret-card-title">
                         🏦 ${p.nom}
                         <span class="pret-card-badge">${p.taux}% · ${p.duree} ans</span>
-                        <button class="pret-info-btn" onclick="openPretDetailModal(${p.id})" title="Voir le détail du prêt">i</button>
                     </div>
-                    <button class="pret-edit-btn" onclick="openPretEditModal(${p.id})" title="Modifier ce prêt">✏️ Modifier</button>
-                    <button class="pat-del-btn" onclick="deletePret(${p.id})" title="Supprimer ce prêt">🗑</button>
+                    <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+                        <button class="action-btn action-btn-info" onclick="openPretDetailModal(${p.id})" title="Voir le détail">i</button>
+                        <button class="action-btn action-btn-edit" onclick="openPretEditModal(${p.id})" title="Modifier">✏️</button>
+                        <button class="action-btn action-btn-delete" onclick="deletePret(${p.id})" title="Supprimer">🗑</button>
+                    </div>
                 </div>
                 <div class="pret-progress-bar"><div class="pret-progress-fill" style="width:${pct.toFixed(1)}%"></div></div>
                 <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:var(--text-secondary);margin-bottom:10px;">
@@ -5398,7 +5459,7 @@ window.closeHelp = function() {
                     scales: {
                         y: {
                             grid: { color: chartGridColor() },
-                            ticks: { color: chartTextColor(), callback: v => v.toLocaleString('fr-FR', {maximumFractionDigits:0}) + ' ' + sym }
+                            ticks: { color: chartTextColor(), callback: v => fmtAxis(v) }
                         },
                         x: { grid: { display: false }, ticks: { color: chartTextColor(), maxTicksLimit: 12 } }
                     },
@@ -5406,7 +5467,7 @@ window.closeHelp = function() {
                         legend: { labels: { color: chartTextColor(), boxWidth: 14 } },
                         tooltip: {
                             callbacks: {
-                                label: ctx => ' ' + ctx.dataset.label + ' : ' + ctx.parsed.y.toLocaleString('fr-FR', {maximumFractionDigits:0}) + ' ' + sym
+                                label: ctx => ' ' + ctx.dataset.label + ' : ' + fmtTooltip(ctx.parsed.y)
                             }
                         }
                     , zoom: zoomOptions('chartPatrimoineEvolution')}
@@ -6753,8 +6814,8 @@ window.closeHelp = function() {
                 ${scratchBadge}
                 ${catBadge}
                 <span class="custom-block-badge">${periodBadge}</span>
-                <button class="custom-block-edit" onclick="editCustomBlock(${block.id})" title="Modifier">✏️</button>
-                <button class="custom-block-delete" onclick="removeCustomBlock(${block.id})" title="Supprimer">✕</button>
+                <button class="action-btn action-btn-edit" onclick="editCustomBlock(${block.id})" title="Modifier">✏️</button>
+                <button class="action-btn action-btn-delete" onclick="removeCustomBlock(${block.id})" title="Supprimer">🗑</button>
             </div>
         </div>`;
 
@@ -6867,12 +6928,12 @@ window.closeHelp = function() {
                 tooltip: { callbacks: { label: ctx => {
                     const v = ctx.parsed?.y ?? ctx.parsed;
                     if (typeof v !== 'number') return ` ${ctx.label}: ${v}`;
-                    return ` ${ctx.dataset.label||ctx.label}: ${isCount ? v : v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €'}`;
+                    return ` ${ctx.dataset.label||ctx.label}: ${isCount ? v : fmtTooltip(v)}`;
                 }}}
             },
             scales: isPolar ? {} : {
                 x: { ticks:{color:'#94a3b8',font:{size:10}}, grid:{color:'rgba(51,65,85,0.3)'} },
-                y: { ticks:{color:'#94a3b8',font:{size:10}, callback: v => isCount ? v : v.toLocaleString('fr-FR')+'€'}, grid:{color:'rgba(51,65,85,0.3)'} }
+                y: { ticks:{color:'#94a3b8',font:{size:10}, callback: v => isCount ? v : fmtAxis(v)}, grid:{color:'rgba(51,65,85,0.3)'} }
             }
         };
     }
@@ -7117,7 +7178,7 @@ window.closeHelp = function() {
             const groupType = block.scratch.group; // 'month', 'category', 'year'
             const rows = labels.map((l,i) => {
                 const v = values[i];
-                const disp = isCount ? v : isPercent ? v.toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1})+' %' : formatMoney(v);
+                const disp = isCount ? v : isPercent ? v.toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1})+' %' : fmtTooltip(v);
                 const maxVal = Math.max(...values);
                 const barW = maxVal > 0 ? Math.round((v/maxVal)*80) : 0;
                 const color = CHART_COLORS[i % CHART_COLORS.length];
@@ -7389,7 +7450,7 @@ window.closeHelp = function() {
                         options: {
                             responsive: true, maintainAspectRatio: false,
                             scales: {
-                                y: { ticks: { color:'#cbd5e1', callback: v => v.toLocaleString('fr-FR')+'€', font:{size:10} }, grid:{color:'rgba(51,65,85,0.3)'} },
+                                y: { ticks: { color:'#cbd5e1', callback: v => fmtAxis(v), font:{size:10} }, grid:{color:'rgba(51,65,85,0.3)'} },
                                 x: { ticks: { color:'#94a3b8', font:{size:9} }, grid:{display:false} }
                             },
                             plugins: { legend:{display:false}, tooltip:{callbacks:{label: ctx => ' '+formatMoney(ctx.parsed.y)}} }
@@ -8450,162 +8511,6 @@ if ('serviceWorker' in navigator) {
 })();
 </script>
 
-<script>
-// ===== SWIPE HORIZONTAL NATIF + HAPTIC FEEDBACK =====
-(function() {
-    if (!('ontouchstart' in window)) return;
 
-    // ── Haptic feedback ───────────────────────────────────────────
-    function haptic(type) {
-        // iOS 13+ : Taptic Engine via Vibration API
-        if (!navigator.vibrate) return;
-        if (type === 'light')  navigator.vibrate(8);
-        if (type === 'medium') navigator.vibrate(18);
-        if (type === 'rigid')  navigator.vibrate([12, 20, 12]);
-    }
-
-    // ── Config ────────────────────────────────────────────────────
-    const MIN_SWIPE_X   = 40;   // px minimum pour valider un swipe
-    const MAX_SWIPE_Y   = 60;   // px max vertical avant annulation
-    const AXIS_LOCK_PX  = 10;   // px avant de verrouiller l'axe
-    const SNAP_RATIO    = 0.3;  // fraction de largeur pour valider le snap
-
-    // ── State ─────────────────────────────────────────────────────
-    let t0x = 0, t0y = 0;
-    let axis = null;            // 'h' | 'v' | null
-    let dragging = false;
-    let startIdx = 0;
-    let currentOffset = 0;     // translateX courant en px
-
-    const TAB_ORDER = window._TAB_ORDER || ['tab-mois','tab-annee','tab-periode','tab-patrimoine','tab-custom','tab-transactions'];
-    const N = TAB_ORDER.length;
-
-    function getRail() { return document.getElementById('tab-rail'); }
-    function getCurrentIdx() {
-        if (typeof window._currentTabId !== 'undefined') {
-            const idx = TAB_ORDER.indexOf(window._currentTabId);
-            return idx >= 0 ? idx : 0;
-        }
-        return 0;
-    }
-    function getW() { return window.innerWidth; }
-
-    // Désactiver la transition CSS pendant le drag
-    function setDragging(on) {
-        const rail = getRail();
-        if (!rail) return;
-        rail.style.transition = on ? 'none' : '';
-    }
-
-    // Appliquer un offset en px (drag live)
-    function applyOffset(px) {
-        const rail = getRail();
-        if (!rail) return;
-        const baseX = -(startIdx * getW());
-        rail.style.transform = 'translateX(' + (baseX + px) + 'px)';
-    }
-
-    // Snap vers un onglet
-    function snapTo(idx) {
-        setDragging(false);
-        // Remettre la transition CSS
-        const rail = getRail();
-        if (rail) rail.style.transition = '';
-
-        // Clamp
-        const target = Math.max(0, Math.min(N - 1, idx));
-        const tabId = TAB_ORDER[target];
-
-        // Utiliser switchTab si possible pour tout mettre à jour
-        if (typeof switchTab === 'function' && tabId !== (window._currentTabId || TAB_ORDER[0])) {
-            haptic('medium');
-            switchTab(tabId);
-        } else {
-            // Même onglet → snap back
-            if (rail) rail.style.transform = 'translateX(-' + (startIdx * 100) + '%)';
-        }
-        dragging = false;
-        axis = null;
-    }
-
-    // ── Touch handlers ────────────────────────────────────────────
-    const main = document.querySelector('main');
-    if (!main) return;
-
-    main.addEventListener('touchstart', function(e) {
-        if (e.touches.length !== 1) return;
-        t0x = e.touches[0].clientX;
-        t0y = e.touches[0].clientY;
-        axis = null;
-        dragging = false;
-        startIdx = getCurrentIdx();
-    }, { passive: true });
-
-    main.addEventListener('touchmove', function(e) {
-        if (e.touches.length !== 1) return;
-
-        const dx = e.touches[0].clientX - t0x;
-        const dy = e.touches[0].clientY - t0y;
-
-        // Verrouiller l'axe une fois qu'on a assez bougé
-        if (!axis) {
-            if (Math.abs(dx) < AXIS_LOCK_PX && Math.abs(dy) < AXIS_LOCK_PX) return;
-            axis = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
-        }
-
-        if (axis !== 'h') return; // swipe vertical → laisser scroller
-
-        // Vérifier que le scroll interne est à 0 (sinon laisser scroller)
-        const active = document.querySelector('.tab-content.active');
-        if (active && active.scrollTop > 4) { axis = 'v'; return; }
-
-        // Empêcher le scroll natif pendant le drag horizontal
-        e.preventDefault();
-
-        if (!dragging) {
-            dragging = true;
-            setDragging(true);
-        }
-
-        // Résistance aux bords
-        let px = dx;
-        if ((startIdx === 0 && dx > 0) || (startIdx === N - 1 && dx < 0)) {
-            px = dx * 0.25; // élastique aux extrémités
-        }
-
-        currentOffset = px;
-        applyOffset(px);
-
-    }, { passive: false }); // passive:false pour pouvoir appeler preventDefault
-
-    main.addEventListener('touchend', function(e) {
-        if (!dragging) { axis = null; return; }
-
-        const w = getW();
-        const absDx = Math.abs(currentOffset);
-        const velX  = e.changedTouches[0].clientX - t0x;
-
-        // Valider le swipe : assez de déplacement OU vélocité rapide
-        const shouldSwipe = absDx > w * SNAP_RATIO || absDx > MIN_SWIPE_X;
-
-        if (shouldSwipe) {
-            const dir = currentOffset < 0 ? 1 : -1; // gauche = suivant (+1), droite = précédent (-1)
-            snapTo(startIdx + dir);
-        } else {
-            snapTo(startIdx); // snap back
-        }
-
-        currentOffset = 0;
-    }, { passive: true });
-
-    main.addEventListener('touchcancel', function() {
-        if (dragging) snapTo(startIdx);
-        dragging = false; axis = null;
-    }, { passive: true });
-
-    // Exposer haptic globalement pour switchTab
-    window._haptic = haptic;
-})();
-</script>
 </body>
 </html>
