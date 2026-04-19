@@ -313,9 +313,35 @@
         .metric-label { color:var(--text-secondary); font-size:0.72rem; margin-bottom:3px; }
         .metric-value { font-size:1.35rem; font-weight:700; font-family:'Inter',sans-serif; }
 
-        .chart-container      { position:relative; height:220px; margin-top:12px; width:100%; overflow:hidden; }
-        .chart-container-tall { height:300px; }
+        .chart-container      { position:relative; height:360px; margin-top:12px; width:100%; }
+        .chart-container-tall { height:480px; }
         .chart-container canvas { max-width:100% !important; max-height:100% !important; }
+
+        /* ===== GRAPHIQUE PLEINE LARGEUR (sans bulle) ===== */
+        .chart-full {
+            width: 100%;
+            margin-bottom: 24px;
+        }
+        .chart-full h3 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 14px;
+            padding: 0 2px;
+        }
+        .chart-full .chart-container {
+            margin-top: 0;
+            height: 380px;
+        }
+        .chart-full .chart-container-tall {
+            height: 500px;
+        }
+        @media (max-width: 768px) {
+            .chart-full .chart-container      { height: 280px; }
+            .chart-full .chart-container-tall { height: 340px; }
+        }
 
         /* ===== COMPARISON & TRENDING ===== */
         .comparison-table { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:0; margin-top:10px; }
@@ -447,7 +473,7 @@
         body.compact-mode .page-header   { margin-bottom:8px; }
         body.compact-mode .page-header h1{ font-size:0.95rem; }
         body.compact-mode .grid-2, body.compact-mode .grid-3, body.compact-mode .grid-4 { gap:6px; margin-bottom:8px; }
-        body.compact-mode .chart-container { height:170px; }
+        body.compact-mode .chart-container { height:240px; }
         body.compact-mode td, body.compact-mode th { padding:6px 8px; }
         body.compact-mode .nav-icon      { width:20px; height:20px; }
 
@@ -1117,6 +1143,23 @@
             border-radius: 0;
         }
         body.pwa-mode .custom-block:hover { border-color: transparent; border-bottom-color: var(--accent-blue); }
+
+        /* chart-full en mode PWA : séparateur bas, padding zéro */
+        body.pwa-mode .chart-full {
+            padding-left: 0;
+            padding-right: 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 0;
+            padding-bottom: 20px;
+        }
+        body.pwa-mode .chart-full h3 {
+            padding-top: 20px;
+        }
+
+        @media (max-width: 768px) {
+            body.pwa-mode .chart-full .chart-container      { height: 260px; }
+            body.pwa-mode .chart-full .chart-container-tall { height: 320px; }
+        }
 
         /* Tab-content : uniquement marge gauche/droite, supprimer padding top/bottom superflus */
         @media (max-width: 768px) {
@@ -1823,7 +1866,9 @@
       customChartInstances = {};
     }
     if (typeof chartInstances !== 'undefined') {
-      Object.values(chartInstances).forEach(c => { if (c) c.destroy(); });
+      Object.values(chartInstances).forEach(c => {
+        if (c && typeof c.destroy === 'function') c.destroy();
+      });
       chartInstances = {};
     }
 
@@ -2872,7 +2917,7 @@
             <button class="btn month-nav-btn month-today-btn" onclick="setCurrentMonth()">📅 Aujourd'hui</button>
         </div>
 
-        <div class="grid-3">
+        <div class="grid-4">
             <div class="stat-box detail-clickable" onclick="openTabDetail('mois','revenues')" title="Voir les revenus du mois">
                 <div class="stat-label">Revenus</div>
                 <div class="stat-value text-success amount-hidden" id="mois-revenus">0.00 €</div>
@@ -2883,6 +2928,11 @@
                 <div class="stat-value text-danger amount-hidden" id="mois-depenses">0.00 €</div>
                 <div class="stat-change" id="mois-depenses-change"></div>
             </div>
+            <div class="stat-box detail-clickable" onclick="openTabDetail('mois','savings')" title="Voir l'épargne du mois">
+                <div class="stat-label">Épargne</div>
+                <div class="stat-value amount-hidden" id="mois-epargne">0.00 €</div>
+                <div class="stat-change" id="mois-epargne-change"></div>
+            </div>
             <div class="stat-box detail-clickable" onclick="openTabDetail('mois','all')" title="Voir toutes les transactions du mois">
                 <div class="stat-label">Solde du mois</div>
                 <div class="stat-value amount-hidden" id="mois-solde">0.00 €</div>
@@ -2890,26 +2940,25 @@
             </div>
         </div>
 
-        <div class="grid-2">
-            <div class="card">
-                <h3>Répartition des dépenses</h3>
-                <div class="chart-container">
-                    <canvas id="chart-mois-pie"></canvas>
-                </div>
+        <div class="chart-full">
+            <h3>Répartition des dépenses</h3>
+            <div class="chart-container">
+                <canvas id="chart-mois-pie"></canvas>
             </div>
-            <div class="card">
-                <h3>Dernières transactions</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Catégorie</th>
-                            <th>Montant</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-mois-recent"></tbody>
-                </table>
-            </div>
+        </div>
+
+        <div class="card">
+            <h3>Dernières transactions</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Catégorie</th>
+                        <th>Montant</th>
+                    </tr>
+                </thead>
+                <tbody id="table-mois-recent"></tbody>
+            </table>
         </div>
 
         <div class="card">
@@ -2945,24 +2994,23 @@
             <p>Vue macro des revenus, dépenses et tendances annuelles</p>
         </div>
 
-        <div class="card">
+        <div class="chart-full">
             <h3>Revenus vs dépenses</h3>
             <div class="chart-container chart-container-tall">
                 <canvas id="chart-annee-bar"></canvas>
             </div>
         </div>
 
-        <div class="grid-2">
-            <div class="card">
-                <h3>Moyennes par catégorie</h3>
-                <div class="chart-container">
-                    <canvas id="chart-annee-moyennes"></canvas>
-                </div>
+        <div class="chart-full">
+            <h3>Moyennes par catégorie</h3>
+            <div class="chart-container">
+                <canvas id="chart-annee-moyennes"></canvas>
             </div>
-            <div class="card">
-                <h3>Dépenses récurrentes</h3>
-                <ul class="trending-list" id="list-recurring"></ul>
-            </div>
+        </div>
+
+        <div class="card">
+            <h3>Dépenses récurrentes</h3>
+            <ul class="trending-list" id="list-recurring"></ul>
         </div>
 
         <div class="card">
@@ -2996,25 +3044,24 @@
             </div>
         </div>
 
-        <div class="card">
+        <div class="chart-full">
             <h3>Épargne cumulée</h3>
             <div class="chart-container chart-container-tall">
                 <canvas id="chart-periode-cumul"></canvas>
             </div>
         </div>
 
-        <div class="grid-2">
-            <div class="card">
-                <h3>Évolution des habitudes</h3>
+        <div class="chart-full">
+            <h3>Évolution des habitudes</h3>
             <div class="chart-container">
-                    <canvas id="chart-periode-habits"></canvas>
-                </div>
+                <canvas id="chart-periode-habits"></canvas>
             </div>
-            <div class="card">
-                <h3>Top catégories</h3>
-                <div class="chart-container">
-                    <canvas id="chart-periode-top"></canvas>
-                </div>
+        </div>
+
+        <div class="chart-full">
+            <h3>Top catégories</h3>
+            <div class="chart-container">
+                <canvas id="chart-periode-top"></canvas>
             </div>
         </div>
 
@@ -3063,9 +3110,9 @@
         <div id="patrimoine-month-alert" class="info-box" style="display:none; border-left-color:var(--warning); color:var(--warning); margin-bottom:14px;"></div>
 
         <!-- Graphique 3 courbes -->
-        <div class="card">
+        <div class="chart-full">
             <h3>Évolution dans le temps</h3>
-            <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;font-size:0.78rem;" class="pat-chart-legend">
+            <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:0.78rem;" class="pat-chart-legend">
                 <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:3px;background:#00d9ff;display:inline-block;border-radius:2px;"></span>Argent réel (comptes)</span>
                 <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:3px;background:#10b981;display:inline-block;border-radius:2px;"></span>Argent perso (net)</span>
                 <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:3px;background:#fb923c;display:inline-block;border-radius:2px;border-style:dashed;"></span>Capital restant dû</span>
@@ -3075,26 +3122,22 @@
             </div>
         </div>
 
-        <div class="grid-2">
-            <!-- Comptes -->
-            <div class="card">
-                <h3>Comptes</h3>
-                <div id="patrimoine-banques-list" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;"></div>
-                <div class="pat-add-row" style="margin-top:16px;">
-                    <input type="text" id="pat-new-nom" placeholder="Nom du compte (ex : Livret A)" style="flex:2; margin-bottom:0;">
-                    <input type="number" id="pat-new-solde" placeholder="Solde (€)" step="0.01" style="flex:1; margin-bottom:0;">
-                    <button class="btn btn-small" onclick="addBanque()" style="flex-shrink:0; height:40px; white-space:nowrap;">+ Ajouter</button>
-                </div>
-                <button class="btn" style="width:100%; margin-top:12px;" onclick="updatePatrimoine()">💾 Sauvegarder</button>
+        <div class="chart-full">
+            <h3>Répartition des actifs</h3>
+            <div class="chart-container">
+                <canvas id="chart-patrimoine-pie"></canvas>
             </div>
+        </div>
 
-            <!-- Répartition -->
-            <div class="card">
-                <h3>Répartition des actifs</h3>
-                <div class="chart-container">
-                    <canvas id="chart-patrimoine-pie"></canvas>
-                </div>
+        <div class="card">
+            <h3>Comptes</h3>
+            <div id="patrimoine-banques-list" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;"></div>
+            <div class="pat-add-row" style="margin-top:16px;">
+                <input type="text" id="pat-new-nom" placeholder="Nom du compte (ex : Livret A)" style="flex:2; margin-bottom:0;">
+                <input type="number" id="pat-new-solde" placeholder="Solde (€)" step="0.01" style="flex:1; margin-bottom:0;">
+                <button class="btn btn-small" onclick="addBanque()" style="flex-shrink:0; height:40px; white-space:nowrap;">+ Ajouter</button>
             </div>
+            <button class="btn" style="width:100%; margin-top:12px;" onclick="updatePatrimoine()">💾 Sauvegarder</button>
         </div>
 
         <!-- Prêts bancaires -->
@@ -4931,7 +4974,9 @@ window.closeHelp = function() {
         _currentTabId = tabId;
         if (tabId === 'tab-custom') renderCustomBlocksGrid();
         setTimeout(() => {
-            Object.values(chartInstances).forEach(c => { if (c && c.resize) c.resize(); });
+            Object.values(chartInstances).forEach(c => {
+                if (c && typeof c.resize === 'function') c.resize();
+            });
         }, 360);
     }
 
@@ -5003,6 +5048,8 @@ window.closeHelp = function() {
         return v.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ' + s;
     }
 
+
+
     function renderMois() {
         if (transactions.length === 0) return;
 
@@ -5024,12 +5071,15 @@ window.closeHelp = function() {
         // Current month stats
         document.getElementById('mois-revenus').textContent = `+${stats.revenus.toFixed(2)} €`;
         document.getElementById('mois-depenses').textContent = `-${stats.depenses.toFixed(2)} €`;
+        document.getElementById('mois-epargne').textContent = `${stats.epargne.toFixed(2)} €`;
+        document.getElementById('mois-epargne').className = `stat-value amount-hidden ${stats.epargne >= 0 ? 'text-success' : 'text-danger'}`;
         document.getElementById('mois-solde').textContent = `${stats.solde.toFixed(2)} €`;
         document.getElementById('mois-solde').className = `stat-value amount-hidden ${stats.solde >= 0 ? 'text-success' : 'text-danger'}`;
 
         // Changes vs previous month
         updateChangeIndicator('mois-revenus-change', stats.revenus, prevStats.revenus);
         updateChangeIndicator('mois-depenses-change', stats.depenses, prevStats.depenses);
+        updateChangeIndicator('mois-epargne-change', stats.epargne, prevStats.epargne);
         updateChangeIndicator('mois-solde-change', stats.solde, prevStats.solde);
 
         // Comparison
@@ -5144,18 +5194,18 @@ window.closeHelp = function() {
 
         const labels = Object.keys(monthlyData).sort();
 
-        // Bar chart
+        // Bar chart — Chart.js
         destroyChart('chartAnneeBar');
         const _anneeLabels = labels;
         chartInstances.chartAnneeBar = new Chart(document.getElementById('chart-annee-bar'), {
             type: 'bar',
             data: {
-                labels: labels,
+                labels: _anneeLabels,
                 datasets: [
-                    { label: 'Revenus',        data: labels.map(k => monthlyData[k].revenus),       backgroundColor: '#10b981', borderRadius: 4 },
-                    { label: 'Dépenses',       data: labels.map(k => monthlyData[k].depenses),      backgroundColor: '#ef4444', borderRadius: 4 },
-                    { label: 'Épargne entrée', data: labels.map(k => monthlyData[k].epargneEntree), backgroundColor: '#0ea5e9', borderRadius: 4 },
-                    { label: 'Épargne sortie', data: labels.map(k => monthlyData[k].eparneSortie),  backgroundColor: '#f59e0b', borderRadius: 4 }
+                    { label: 'Revenus',        data: _anneeLabels.map(k => monthlyData[k].revenus),       backgroundColor: '#10b981', borderRadius: 4 },
+                    { label: 'Dépenses',       data: _anneeLabels.map(k => monthlyData[k].depenses),      backgroundColor: '#ef4444', borderRadius: 4 },
+                    { label: 'Épargne entrée', data: _anneeLabels.map(k => monthlyData[k].epargneEntree), backgroundColor: '#0ea5e9', borderRadius: 4 },
+                    { label: 'Épargne sortie', data: _anneeLabels.map(k => monthlyData[k].eparneSortie),  backgroundColor: '#f59e0b', borderRadius: 4 }
                 ]
             },
             options: {
@@ -5164,13 +5214,15 @@ window.closeHelp = function() {
                     y: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor(), callback: v => fmtAxis(v) } },
                     x: { grid: { display: false }, ticks: { color: chartTextColor() } }
                 },
-                plugins: { legend: { labels: { color: chartTextColor() } } , zoom: zoomOptions('chartAnneeBar')},
+                plugins: {
+                    legend: { labels: { color: chartTextColor() } },
+                    zoom: zoomOptions('chartAnneeBar')
+                },
                 onClick: (evt, elements) => {
                     if (!elements.length) return;
-                    const key = _anneeLabels[elements[0].index]; // e.g. "2025-01"
+                    const key = _anneeLabels[elements[0].index];
                     const [y, m] = key.split('-');
                     const tx = transactions.filter(t => t.date.getFullYear()===+y && t.date.getMonth()===+m-1);
-                    const dsLabel = ['revenues','expenses','savings','savings'][elements[0].datasetIndex] || 'all';
                     const dsType = elements[0].datasetIndex === 0 ? 'revenues' : elements[0].datasetIndex === 1 ? 'expenses' : 'savings';
                     showDetailModal(`${key} — ${['Revenus','Dépenses','Épargne entrée','Épargne sortie'][elements[0].datasetIndex]}`, tx, dsType);
                 }
@@ -5282,7 +5334,7 @@ window.closeHelp = function() {
                     datasets: [{
                         label: 'Épargne cumulée (€)',
                         data: cumulData.map(d => d.value),
-                        borderColor: '#00d9ff', backgroundColor: 'rgba(0, 217, 255, 0.05)',
+                        borderColor: '#00d9ff', backgroundColor: 'rgba(0,217,255,0.07)',
                         tension: 0.4, fill: true, pointRadius: 2, pointBackgroundColor: '#00d9ff'
                     }]
                 },
@@ -5292,7 +5344,10 @@ window.closeHelp = function() {
                         y: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor(), callback: v => fmtAxis(v) } },
                         x: { grid: { display: false }, ticks: { color: chartTextColor() } }
                     },
-                    plugins: { legend: { labels: { color: chartTextColor() } } , zoom: zoomOptions('chartPeriodeCumul')},
+                    plugins: {
+                        legend: { labels: { color: chartTextColor() } },
+                        zoom: zoomOptions('chartPeriodeCumul')
+                    },
                     onClick: (evt, elements) => {
                         if (!elements.length) return;
                         const d = cumulData[elements[0].index];
@@ -5337,11 +5392,11 @@ window.closeHelp = function() {
                     datasets: topCategories.map((cat, idx) => ({
                         label: cat[0],
                         data: monthRanges.map(month => {
-                            const monthTx = sorted.filter(t => t.date.getFullYear() === month.getFullYear() && t.date.getMonth() === month.getMonth() && t.categorie === cat[0] && (isExpense(t) || t.categorie === 'Epargne'));
-                            return monthTx.reduce((a, b) => a + getAbsoluteAmount(b), 0);
+                            const monthTx = sorted.filter(t => t.date.getFullYear()===month.getFullYear() && t.date.getMonth()===month.getMonth() && t.categorie===cat[0] && (isExpense(t) || t.categorie==='Epargne'));
+                            return monthTx.reduce((a,b) => a+getAbsoluteAmount(b), 0);
                         }),
-                        borderColor: ['#00d9ff', '#0ea5e9', '#a855f7', '#ec4899', '#f59e0b'][idx],
-                        tension: 0.4, pointRadius: 1
+                        borderColor: ['#00d9ff','#0ea5e9','#a855f7','#ec4899','#f59e0b'][idx],
+                        tension: 0.4, pointRadius: 2
                     }))
                 },
                 options: {
@@ -5350,13 +5405,16 @@ window.closeHelp = function() {
                         y: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor(), callback: v => fmtAxis(v) } },
                         x: { grid: { display: false }, ticks: { color: chartTextColor() } }
                     },
-                    plugins: { legend: { labels: { color: chartTextColor() } } , zoom: zoomOptions('chartPeriodeHabits')},
+                    plugins: {
+                        legend: { labels: { color: chartTextColor() } },
+                        zoom: zoomOptions('chartPeriodeHabits')
+                    },
                     onClick: (evt, elements) => {
                         if (!elements.length) return;
                         const catName = topCategories[elements[0].datasetIndex][0];
                         const month = monthRanges[elements[0].index];
                         const tx = sorted.filter(t => t.date.getFullYear()===month.getFullYear() && t.date.getMonth()===month.getMonth() && t.categorie===catName);
-                        showDetailModal(catName + ' — ' + month.toLocaleDateString('fr-FR',{month:'short',year:'numeric'}), tx, catName==='Epargne'?'savings':'general');
+                        showDetailModal(catName+' — '+month.toLocaleDateString('fr-FR',{month:'short',year:'numeric'}), tx, catName==='Epargne'?'savings':'general');
                     }
                 }
             });
@@ -5521,22 +5579,17 @@ window.closeHelp = function() {
 
     // ── Zoom helpers ──────────────────────────────────────────────
     function zoomOptions(chartKey) {
-        // Retourner les options zoom uniquement si le plugin est chargé
-        if (typeof Chart === 'undefined' || !Chart.registry || !Chart.registry.plugins.get('zoom')) {
-            return {};
-        }
         return {
             zoom: {
                 wheel: { enabled: true, speed: 0.08 },
                 pinch: { enabled: true },
                 mode: 'x',
-                onZoom: () => showZoomReset(chartKey)
             },
             pan: {
                 enabled: true,
                 mode: 'x',
-                onPan: () => showZoomReset(chartKey)
-            }
+            },
+            limits: { x: { minRange: 2 } }
         };
     }
 
@@ -5545,10 +5598,136 @@ window.closeHelp = function() {
         if (btn) btn.style.opacity = '1';
     }
 
+    // ===== ZOOM STYLE TRADING VIEW =====
+    // Drag sur l'axe X : droite = zoom in, gauche = zoom out
+    function setupAxisDragZoom(chart, key) {
+        if (!chart || !chart.canvas) return;
+        const canvas = chart.canvas;
+
+        let active = false;
+        let startClientX = 0;
+        let snapMinIdx = 0;
+        let snapMaxIdx = 0;
+        let snapAnchorRatio = 0.5; // position relative du clic sur l'axe (0=gauche, 1=droite)
+
+        function getLabels() { return chart.data?.labels || []; }
+
+        function getCurrentIdxRange() {
+            const scale = chart.scales?.x;
+            if (!scale) return null;
+            const labels = getLabels();
+            if (!labels.length) return null;
+            // scale.min / scale.max sont des indices numériques pour les category scales
+            const minI = Math.max(0, Math.round(typeof scale.min === 'number' ? scale.min : 0));
+            const maxI = Math.min(labels.length - 1, Math.round(typeof scale.max === 'number' ? scale.max : labels.length - 1));
+            return { minI, maxI };
+        }
+
+        function isInXAxisZone(pos) {
+            const ca = chart.chartArea;
+            if (!ca) return false;
+            // Zone : sous le chartArea, sur toute la largeur des données
+            return pos.y > ca.bottom - 4 && pos.y < canvas.clientHeight && pos.x >= ca.left && pos.x <= ca.right;
+        }
+
+        function getCanvasPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const src = e.touches ? e.touches[0] : e;
+            return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+        }
+
+        function onPointerDown(e) {
+            const pos = getCanvasPos(e);
+            if (!isInXAxisZone(pos)) return;
+
+            active = true;
+            startClientX = (e.touches ? e.touches[0] : e).clientX;
+
+            const range = getCurrentIdxRange();
+            if (range) {
+                snapMinIdx = range.minI;
+                snapMaxIdx = range.maxI;
+                // Ancre : position du clic dans la plage visible
+                const ca = chart.chartArea;
+                snapAnchorRatio = Math.max(0, Math.min(1, (pos.x - ca.left) / (ca.right - ca.left)));
+            }
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function onPointerMove(e) {
+            if (!active) return;
+            const src = e.touches ? e.touches[0] : e;
+            const dx = src.clientX - startClientX;
+
+            const labels = getLabels();
+            if (!labels.length) return;
+
+            // Droite = zoom in = réduire la plage, Gauche = zoom out = élargir
+            // sensitivity : ~1% de zoom par 3px de déplacement
+            const sensitivity = 0.006;
+            const factor = Math.pow(1 - sensitivity, dx);
+
+            const currentRange = snapMaxIdx - snapMinIdx;
+            let newRange = Math.max(0, Math.min(labels.length - 1, Math.round(currentRange * factor)));
+
+            // Point d'ancrage : on zoome autour de là où l'utilisateur a cliqué
+            const anchor = snapMinIdx + Math.round(snapAnchorRatio * currentRange);
+            let newMin = Math.round(anchor - snapAnchorRatio * newRange);
+            let newMax = newMin + newRange;
+
+            // Clampage aux bornes
+            if (newMin < 0) { newMin = 0; newMax = Math.min(labels.length - 1, newRange); }
+            if (newMax >= labels.length) { newMax = labels.length - 1; newMin = Math.max(0, newMax - newRange); }
+
+            chart.scales.x.options.min = labels[newMin];
+            chart.scales.x.options.max = labels[newMax];
+            chart.update('none');
+
+            if (key) showZoomReset(key);
+            e.preventDefault();
+        }
+
+        function onPointerUp() { active = false; }
+
+        // Curseur ew-resize au survol de la zone axe
+        function onMouseHover(e) {
+            if (active) return;
+            const pos = getCanvasPos(e);
+            canvas.style.cursor = isInXAxisZone(pos) ? 'ew-resize' : '';
+        }
+
+        canvas.addEventListener('mousedown',  onPointerDown);
+        canvas.addEventListener('mousemove',  onMouseHover);
+        document.addEventListener('mousemove', onPointerMove);
+        document.addEventListener('mouseup',   onPointerUp);
+        canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+        document.addEventListener('touchmove', onPointerMove, { passive: false });
+        document.addEventListener('touchend',  onPointerUp);
+
+        // Nettoyage stocké sur l'instance
+        chart._axisDragCleanup = () => {
+            canvas.removeEventListener('mousedown',  onPointerDown);
+            canvas.removeEventListener('mousemove',  onMouseHover);
+            document.removeEventListener('mousemove', onPointerMove);
+            document.removeEventListener('mouseup',   onPointerUp);
+            canvas.removeEventListener('touchstart', onPointerDown);
+            document.removeEventListener('touchmove', onPointerMove);
+            document.removeEventListener('touchend',  onPointerUp);
+        };
+    }
+
     function resetChartZoom(chartKey) {
         const chart = chartInstances[chartKey] || customChartInstances?.[chartKey];
-        if (chart && chart.resetZoom) {
-            chart.resetZoom();
+        if (chart) {
+            // Reset TradingView zoom (scale options)
+            if (chart.scales?.x?.options) {
+                chart.scales.x.options.min = undefined;
+                chart.scales.x.options.max = undefined;
+                chart.update('active');
+            } else if (chart.resetZoom) {
+                chart.resetZoom();
+            }
             const btn = document.getElementById('zoom-reset-' + chartKey);
             if (btn) btn.style.opacity = '0.35';
         }
@@ -5934,25 +6113,17 @@ window.closeHelp = function() {
                     responsive: true, maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
                     scales: {
-                        y: {
-                            grid: { color: chartGridColor() },
-                            ticks: { color: chartTextColor(), callback: v => fmtAxis(v) }
-                        },
+                        y: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor(), callback: v => fmtAxis(v) } },
                         x: { grid: { display: false }, ticks: { color: chartTextColor(), maxTicksLimit: 12 } }
                     },
                     plugins: {
                         legend: { labels: { color: chartTextColor(), boxWidth: 14 } },
-                        tooltip: {
-                            callbacks: {
-                                label: ctx => ' ' + ctx.dataset.label + ' : ' + fmtTooltip(ctx.parsed.y)
-                            }
-                        }
-                    , zoom: zoomOptions('chartPatrimoineEvolution')}
+                        tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ' : ' + fmtTooltip(ctx.parsed.y) } },
+                        zoom: zoomOptions('chartPatrimoineEvolution')
+                    }
                 }
             });
         }
-
-        // ── Render loans ──
         renderPrets();
 
         // ── Detail table ──
@@ -6016,7 +6187,7 @@ window.closeHelp = function() {
     }
 
     function calculateMonthStats(txs) {
-        let revenus = 0, depenses = 0;
+        let revenus = 0, depenses = 0, epargne = 0;
         txs.forEach(t => {
             if (isRevenue(t)) {
                 revenus += getAbsoluteAmount(t);
@@ -6024,8 +6195,11 @@ window.closeHelp = function() {
             if (isExpense(t)) {
                 depenses += getAbsoluteAmount(t);
             }
+            if (t.categorie === 'Epargne') {
+                epargne += (-t.montant); // négatif = dépôt → positif
+            }
         });
-        return { revenus, depenses, solde: revenus - depenses };
+        return { revenus, depenses, epargne, solde: revenus - depenses };
     }
 
     function updateChangeIndicator(elementId, current, previous, reverse = false) {
@@ -6040,7 +6214,9 @@ window.closeHelp = function() {
 
     function destroyChart(id) {
         if (chartInstances[id]) {
-            chartInstances[id].destroy();
+            const inst = chartInstances[id];
+            if (inst._axisDragCleanup) inst._axisDragCleanup();
+            if (typeof inst.destroy === 'function') inst.destroy();
             delete chartInstances[id];
         }
     }
@@ -6860,7 +7036,7 @@ window.closeHelp = function() {
             
             // Clear chart instances
             Object.values(chartInstances).forEach(chart => {
-                if (chart) chart.destroy();
+                if (chart && typeof chart.destroy === 'function') chart.destroy();
             });
             chartInstances = {};
             console.log('Charts cleared');
@@ -8726,7 +8902,9 @@ window.exitDemoMode = function() {
     patrimoineHistorique = {};
     customBlocks         = [];
     lastUpdateDate       = null;
-    Object.values(chartInstances).forEach(c => { if (c) c.destroy(); });
+    Object.values(chartInstances).forEach(c => {
+        if (c && typeof c.destroy === 'function') c.destroy();
+    });
     chartInstances = {};
 
     // Vider aussi le localStorage pour éviter que les données démo
