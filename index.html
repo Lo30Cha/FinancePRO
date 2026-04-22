@@ -47,7 +47,7 @@
             --border-2: rgba(255,255,255,0.05);
             --card-bg:  rgba(255,255,255,0.04);
             --card-hover: rgba(255,255,255,0.07);
-            --nav-bg:   #0d0d0d;
+            --nav-bg:   #080808;
             --input-bg: #1a1a1a;
             --overlay-bg: rgba(0,0,0,0.92);
             --accent-subtle: rgba(226,226,226,0.07);
@@ -78,7 +78,7 @@
             --border-2: rgba(0,0,0,0.06);
             --card-bg:  rgba(255,255,255,0.85);
             --card-hover: rgba(255,255,255,1);
-            --nav-bg:   #f7f7f7;
+            --nav-bg:   #e8e8e8;
             --input-bg: #ffffff;
             --overlay-bg: rgba(247,247,247,0.96);
             --accent-subtle: rgba(26,26,26,0.06);
@@ -122,8 +122,8 @@
         /* ===== NAV DESKTOP ===== */
         nav {
             width: 240px;
-            background: var(--bg-primary);
-            border-right: 1px solid var(--border);
+            background: var(--nav-bg);
+            border-right: 1px solid rgba(255,255,255,0.07);
             display: flex;
             flex-direction: column;
             padding: 24px 14px;
@@ -2832,20 +2832,15 @@
                 </div>
             </div>
 
-            <!-- Filtre catégories -->
+            <!-- Filtre descriptions -->
             <label class="modal-label" style="display:flex;align-items:center;justify-content:space-between;">
-                <span>🏷️ Filtrer par catégorie(s)</span>
+                <span>📝 Filtrer par description(s)</span>
                 <span style="font-size:0.75rem;color:var(--text-secondary);font-weight:400;">laisser vide = toutes</span>
             </label>
-            <div id="block-cat-filter" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;padding:12px;background:rgba(0,0,0,0.2);border:1px solid rgba(51,65,85,0.4);border-radius:8px;">
-                <label class="cat-chip"><input type="checkbox" value="Achat"> Achat</label>
-                <label class="cat-chip"><input type="checkbox" value="Autres"> Autres</label>
-                <label class="cat-chip"><input type="checkbox" value="Entrée"> Entrée</label>
-                <label class="cat-chip"><input type="checkbox" value="Epargne"> Épargne</label>
-                <label class="cat-chip"><input type="checkbox" value="Loyers"> Loyers</label>
-                <label class="cat-chip"><input type="checkbox" value="Nourriture"> Nourriture</label>
-                <label class="cat-chip"><input type="checkbox" value="Sortie"> Sortie</label>
-                <label class="cat-chip"><input type="checkbox" value="Voiture"> Voiture</label>
+            <input type="text" id="block-desc-search" placeholder="Rechercher une description…"
+                style="margin-bottom:8px;" oninput="filterBlockDescChips()">
+            <div id="block-desc-filter" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;max-height:140px;overflow-y:auto;padding:10px;background:rgba(0,0,0,0.2);border:1px solid rgba(51,65,85,0.4);border-radius:8px;">
+                <!-- peuplé dynamiquement -->
             </div>
 
             <!-- Taille -->
@@ -3252,49 +3247,48 @@
         <div class="tx-add-card" style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--border);">
             <h3>Ajouter</h3>
 
-            <!-- Champ caché pour la valeur de catégorie (compat refreshAllCategorySelects) -->
+            <!-- Champs cachés -->
             <input type="hidden" id="input-tx-cat" value="">
+            <input type="hidden" id="input-tx-desc-val" value="">
 
-            <div class="tx-form-grid">
-
-                <!-- DATE -->
-                <div class="tx-form-group">
-                    <label class="tx-label">📅 Date</label>
-                    <input type="date" id="input-tx-date" class="tx-date-input">
-                </div>
-
-                <!-- MONTANT -->
-                <div class="tx-form-group">
-                    <label class="tx-label">💶 Montant (valeur absolue)</label>
-                    <div class="tx-amount-wrap">
-                        <input type="number" id="input-tx-montant" class="tx-amount-input" placeholder="0.00" step="0.01" min="0">
-                        <span class="tx-amount-sign" id="tx-sign-preview">−</span>
-                    </div>
-                    <!-- Toggle Épargne -->
-                    <div id="tx-epargne-toggle" class="tx-epargne-toggle" style="display:none;">
-                        <button type="button" class="tx-toggle-btn" id="btn-depot" onclick="setEpargneMode('depot')">⬇ Dépôt</button>
-                        <button type="button" class="tx-toggle-btn" id="btn-retrait" onclick="setEpargneMode('retrait')">⬆ Retrait</button>
-                    </div>
-                </div>
-
-                <!-- DESCRIPTION -->
-                <div class="tx-form-group tx-form-group--desc">
-                    <label class="tx-label">📝 Description</label>
-                    <input type="text" id="input-tx-desc" class="tx-desc-input"
-                        placeholder="Ex : Courses Carrefour…"
-                        list="tx-desc-datalist" autocomplete="off">
-                    <datalist id="tx-desc-datalist"></datalist>
-                </div>
-
+            <!-- 1 · DATE -->
+            <div class="tx-form-group" style="margin-bottom:14px;">
+                <label class="tx-label">📅 Date</label>
+                <input type="date" id="input-tx-date" class="tx-date-input" oninput="checkAutoSubmit()">
             </div>
 
-            <!-- CATÉGORIES CHIPS -->
-            <div class="tx-form-group" style="margin-top:4px;">
+            <!-- 2 · CATÉGORIE -->
+            <div class="tx-form-group" style="margin-bottom:14px;">
                 <label class="tx-label">🏷️ Catégorie</label>
                 <div id="tx-cat-chips" class="tx-cat-chips"></div>
             </div>
 
-            <button type="button" class="btn tx-submit-btn" onclick="addNewTransaction()">✅ Ajouter la transaction</button>
+            <!-- 3 · DESCRIPTION (chips par catégorie + saisie libre) -->
+            <div class="tx-form-group" id="tx-desc-section" style="margin-bottom:14px; display:none;">
+                <label class="tx-label">📝 Description</label>
+                <div id="tx-desc-chips" class="tx-cat-chips" style="margin-bottom:8px;"></div>
+                <input type="text" id="input-tx-desc" class="tx-desc-input"
+                    placeholder="Ou saisie libre…"
+                    list="tx-desc-datalist" autocomplete="off"
+                    oninput="onDescTextInput()">
+                <datalist id="tx-desc-datalist"></datalist>
+            </div>
+
+            <!-- 4 · MONTANT -->
+            <div class="tx-form-group" id="tx-montant-section" style="display:none;">
+                <label class="tx-label">💶 Montant (valeur absolue)</label>
+                <div class="tx-amount-wrap">
+                    <input type="number" id="input-tx-montant" class="tx-amount-input" placeholder="0.00" step="0.01" min="0" onblur="checkAutoSubmit()" onkeydown="if(event.key==='Enter'){event.preventDefault();checkAutoSubmit();}">
+                    <span class="tx-amount-sign" id="tx-sign-preview">−</span>
+                </div>
+                <!-- Toggle Épargne -->
+                <div id="tx-epargne-toggle" class="tx-epargne-toggle" style="display:none;">
+                    <button type="button" class="tx-toggle-btn" id="btn-depot" onclick="setEpargneMode('depot')">⬇ Dépôt</button>
+                    <button type="button" class="tx-toggle-btn" id="btn-retrait" onclick="setEpargneMode('retrait')">⬆ Retrait</button>
+                </div>
+            </div>
+
+            <button type="button" class="btn tx-submit-btn" id="tx-submit-btn" onclick="addNewTransaction()" style="display:none;">✅ Ajouter la transaction</button>
         </div>
 
         <div class="card">
@@ -6272,7 +6266,7 @@ window.closeHelp = function() {
     function addNewTransaction() {
         const date = document.getElementById('input-tx-date').value;
         const cat  = document.getElementById('input-tx-cat').value;
-        const desc = document.getElementById('input-tx-desc').value.trim();
+        const desc = (document.getElementById('input-tx-desc-val')?.value || document.getElementById('input-tx-desc')?.value || '').trim();
         const rawMontant = parseFloat(document.getElementById('input-tx-montant').value);
 
         if (!date)  { alert('❌ Veuillez sélectionner une date'); return; }
@@ -6301,17 +6295,32 @@ window.closeHelp = function() {
             });
 
             transactions.sort((a, b) => b.date - a.date);
+            // Persist description custom si elle n'est pas dans la liste par défaut
+            if (cat && desc && desc !== 'Sans description') {
+                const defaults = CAT_DESCRIPTIONS[cat] || [];
+                if (!defaults.includes(desc)) saveCustomDesc(cat, desc);
+            }
             saveToLocalStorage();
             refreshAllViews();
             refreshDescriptionDatalist();
 
             // Reset formulaire
-            document.getElementById('input-tx-date').value = '';
+            // Conserver la date pour la prochaine saisie
             document.getElementById('input-tx-cat').value = '';
+            const dvEl = document.getElementById('input-tx-desc-val');
+            if (dvEl) dvEl.value = '';
             document.getElementById('input-tx-desc').value = '';
             document.getElementById('input-tx-montant').value = '';
-            // Reset chips
-            document.querySelectorAll('.tx-chip').forEach(b => b.classList.remove('selected'));
+            // Reset chips cat et desc
+            document.querySelectorAll('#tx-cat-chips .tx-chip').forEach(b => b.classList.remove('selected'));
+            document.querySelectorAll('#tx-desc-chips .tx-chip').forEach(b => b.classList.remove('selected'));
+            // Cacher sections description et montant
+            const descSection = document.getElementById('tx-desc-section');
+            const montantSection = document.getElementById('tx-montant-section');
+            const submitBtn = document.getElementById('tx-submit-btn');
+            if (descSection) descSection.style.display = 'none';
+            if (montantSection) montantSection.style.display = 'none';
+            if (submitBtn) submitBtn.style.display = 'none';
             // Reset signe
             const signEl = document.getElementById('tx-sign-preview');
             if (signEl) { signEl.textContent = '?'; signEl.className = 'tx-amount-sign'; }
@@ -6325,6 +6334,22 @@ window.closeHelp = function() {
             console.error('Erreur lors de l\'ajout:', err);
             alert('❌ Erreur: ' + err.message);
         }
+    }
+
+    // ── AUTO-SUBMIT : déclenche si date + catégorie + description + montant sont remplis ──
+    let _autoSubmitTimer = null;
+    function checkAutoSubmit() {
+        const date    = document.getElementById('input-tx-date')?.value;
+        const cat     = document.getElementById('input-tx-cat')?.value;
+        const desc    = (document.getElementById('input-tx-desc-val')?.value || document.getElementById('input-tx-desc')?.value || '').trim();
+        const montant = parseFloat(document.getElementById('input-tx-montant')?.value);
+        if (date && cat && desc && !isNaN(montant) && montant > 0) {
+            addNewTransaction();
+        }
+    }
+    function debouncedAutoSubmit() {
+        clearTimeout(_autoSubmitTimer);
+        _autoSubmitTimer = setTimeout(checkAutoSubmit, 420);
     }
 
     function deleteTransaction(id) {
@@ -7269,8 +7294,9 @@ window.closeHelp = function() {
         document.getElementById('block-size').value = 'medium';
         document.getElementById('block-date-from').value = '';
         document.getElementById('block-date-to').value = '';
-        // Reset category checkboxes
-        document.querySelectorAll('#block-cat-filter input[type=checkbox]').forEach(cb => cb.checked = false);
+        // Reset description filter
+        document.getElementById('block-desc-search').value = '';
+        populateBlockDescChips([]);
         // Reset scratch to defaults
         Object.assign(scratchState, { sources: ['all'], group: 'month', calc: 'sum', display: 'bar', category: 'Nourriture' });
         document.querySelectorAll('.scratch-block').forEach(b => {
@@ -7299,10 +7325,9 @@ window.closeHelp = function() {
         document.getElementById('block-size').value = block.size;
         document.getElementById('block-date-from').value = block.dateFrom || '';
         document.getElementById('block-date-to').value = block.dateTo || '';
-        // Restore categories checkboxes
-        document.querySelectorAll('#block-cat-filter input[type=checkbox]').forEach(cb => {
-            cb.checked = block.categories && block.categories.includes(cb.value);
-        });
+        // Restore description filter
+        document.getElementById('block-desc-search').value = '';
+        populateBlockDescChips(block.descs || []);
         document.getElementById('add-block-modal').style.display = 'flex';
 
         if (block.scratch) {
@@ -7358,6 +7383,27 @@ window.closeHelp = function() {
         if ([...metricSel.options].some(o => o.value === current)) metricSel.value = current;
     }
 
+    // ── Filtre descriptions dans le modal bloc ──────────────────────────────
+    function populateBlockDescChips(selected) {
+        const container = document.getElementById('block-desc-filter');
+        if (!container) return;
+        // Toutes les descriptions uniques triées
+        const allDescs = [...new Set(transactions.map(t => t.desc).filter(Boolean))].sort((a,b) => a.localeCompare(b, 'fr'));
+        const search = (document.getElementById('block-desc-search')?.value || '').toLowerCase();
+        const filtered = search ? allDescs.filter(d => d.toLowerCase().includes(search)) : allDescs;
+        container.innerHTML = filtered.map(d => {
+            const id = 'dchip_' + d.replace(/[^a-z0-9]/gi,'_');
+            const checked = selected.includes(d) ? 'checked' : '';
+            return `<label style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;border:1.5px solid ${checked ? 'rgba(99,102,241,0.6)' : 'rgba(255,255,255,0.09)'};background:${checked ? 'rgba(99,102,241,0.12)' : 'transparent'};color:${checked ? '#818cf8' : 'var(--text-secondary)'};font-size:0.8rem;cursor:pointer;user-select:none;white-space:nowrap;transition:all 0.15s;">
+                <input type="checkbox" class="desc-chip-cb" value="${d}" ${checked} style="display:none;" onchange="this.closest('label').style.borderColor=this.checked?'rgba(99,102,241,0.6)':'rgba(255,255,255,0.09)';this.closest('label').style.background=this.checked?'rgba(99,102,241,0.12)':'transparent';this.closest('label').style.color=this.checked?'#818cf8':'var(--text-secondary)';">${d}
+            </label>`;
+        }).join('');
+    }
+    function filterBlockDescChips() {
+        const selected = [...document.querySelectorAll('#block-desc-filter .desc-chip-cb:checked')].map(cb => cb.value);
+        populateBlockDescChips(selected);
+    }
+
     // ===================== SAVE / LOAD =====================
     function saveNewBlock() {
         const title    = document.getElementById('block-title').value.trim() || 'Mon bloc';
@@ -7365,18 +7411,18 @@ window.closeHelp = function() {
         const size     = document.getElementById('block-size').value;
         const dateFrom = document.getElementById('block-date-from').value;
         const dateTo   = document.getElementById('block-date-to').value;
-        // Récupérer les catégories cochées
-        const categories = [...document.querySelectorAll('#block-cat-filter input:checked')].map(cb => cb.value);
+        // Récupérer les descriptions cochées
+        const descs = [...document.querySelectorAll('#block-desc-filter .desc-chip-cb:checked')].map(cb => cb.value);
         let blockData;
 
         if (currentModalMode === 'visual') {
             // Sauvegarder avec sources (tableau) au lieu de source (string)
             const scratchToSave = { ...scratchState };
-            blockData = { title, metric: 'scratch', scratch: scratchToSave, type: scratchState.display, period, size, dateFrom, dateTo, categories };
+            blockData = { title, metric: 'scratch', scratch: scratchToSave, type: scratchState.display, period, size, dateFrom, dateTo, descs };
         } else {
             const type   = document.getElementById('block-type').value;
             const metric = document.getElementById('block-metric').value;
-            blockData = { title, metric, type, period, size, dateFrom, dateTo, categories };
+            blockData = { title, metric, type, period, size, dateFrom, dateTo, descs };
         }
 
         if (editingBlockId !== null) {
@@ -7459,8 +7505,8 @@ window.closeHelp = function() {
         const scratchBadge = isScratch
             ? `<span class="custom-block-badge" style="border-color:rgba(168,85,247,0.4);color:#a855f7;">🎨 Visuel</span>`
             : '';
-        const catBadge = (block.categories && block.categories.length > 0)
-            ? `<span class="custom-block-badge" style="border-color:rgba(245,158,11,0.4);color:#f59e0b;" title="${block.categories.join(', ')}">🏷️ ${block.categories.length} cat.</span>`
+        const catBadge = (block.descs && block.descs.length > 0)
+            ? `<span class="custom-block-badge" style="border-color:rgba(99,102,241,0.4);color:#818cf8;" title="${block.descs.join(', ')}">📝 ${block.descs.length} desc.</span>`
             : '';
 
         const header = `<div class="custom-block-header">
@@ -7521,9 +7567,9 @@ window.closeHelp = function() {
                 if (block.dateTo)   tx = tx.filter(t => t.date <= new Date(block.dateTo+'T23:59:59'));
                 break;
         }
-        // Multi-category filter
-        if (block.categories && block.categories.length > 0) {
-            tx = tx.filter(t => block.categories.includes(t.categorie));
+        // Multi-description filter
+        if (block.descs && block.descs.length > 0) {
+            tx = tx.filter(t => block.descs.includes(t.desc));
         }
         return tx;
     }
@@ -8384,18 +8430,109 @@ window.closeHelp = function() {
         }).join('');
     }
 
+    // ── Descriptions suggérées par catégorie ──────────────────────────────
+    const CAT_DESCRIPTIONS = {
+        'Nourriture': ['Crous','Courses','Cantine MBDA','Fast-food','Restaurant','Boulangerie','Rechargement Izly','Machine à laver'],
+        'Sortie':     ['Bar','Restaurant','Fast-food','Transport','Cinéma','Sport','Soirée','Boulangerie','Courses soirée','Loisir','Ski','Livraison','Virement ami'],
+        'Achat':      ['Vêtement','High-tech','Cadeau','Jeu / Steam','Amazon','Décathlon','Pharmacie','Fournitures','Coiffeur','Fnac','Équipement travail','Transport'],
+        'Voiture':    ['Péage','Essence','Réparation','Parking'],
+        'Autres':     ['Café','Machine à laver','Coiffeur','Médecin','Pharmacie','Abonnement CB','Formation','Administratif','Distributeur','Snack','Divers'],
+        'Entrée':     ['Salaire MBDA','Prime MBDA','CAF','Mobili-Jeune','Remboursement','Remboursement mutuelle','Cadeau','Virement ami','Virement famille','Chèque'],
+        'Epargne':    ['Épargne entrée','Épargne sortie'],
+        'Loyers':     ['Loyer Paris','Loyer Bourges'],
+    };
+
     function selectTxCat(cat) {
         const hidden = document.getElementById('input-tx-cat');
         if (hidden) hidden.value = cat;
-        // Mise à jour visuelle chips
-        document.querySelectorAll('.tx-chip').forEach(btn => {
+        // Chips catégorie
+        document.querySelectorAll('#tx-cat-chips .tx-chip').forEach(btn => {
             btn.classList.toggle('selected', btn.textContent.trim().endsWith(cat));
         });
         // Logique signe
         updateTxSignPreview();
-        // Afficher/masquer toggle épargne
+        // Toggle épargne
         const toggle = document.getElementById('tx-epargne-toggle');
         if (toggle) toggle.style.display = cat === 'Epargne' ? 'flex' : 'none';
+
+        // Reset description
+        const descVal = document.getElementById('input-tx-desc-val');
+        const descText = document.getElementById('input-tx-desc');
+        if (descVal) descVal.value = '';
+        if (descText) descText.value = '';
+
+        // Afficher section description + rendre les chips
+        const descSection = document.getElementById('tx-desc-section');
+        if (descSection) descSection.style.display = 'block';
+        renderDescChips(cat, '');
+
+        // Cacher montant jusqu'à description choisie
+        const montantSection = document.getElementById('tx-montant-section');
+        const submitBtn = document.getElementById('tx-submit-btn');
+        if (montantSection) montantSection.style.display = 'none';
+        if (submitBtn) submitBtn.style.display = 'none';
+    }
+
+    // Charge / sauvegarde les descriptions custom par catégorie
+    function loadCustomDescs() {
+        try { return JSON.parse(localStorage.getItem('fp_custom_descs') || '{}'); } catch { return {}; }
+    }
+    function saveCustomDesc(cat, desc) {
+        const store = loadCustomDescs();
+        if (!store[cat]) store[cat] = [];
+        if (!store[cat].includes(desc)) {
+            store[cat].push(desc);
+            localStorage.setItem('fp_custom_descs', JSON.stringify(store));
+        }
+    }
+
+    function renderDescChips(cat, current) {
+        const container = document.getElementById('tx-desc-chips');
+        if (!container) return;
+        const defaults = CAT_DESCRIPTIONS[cat] || [];
+        const custom   = loadCustomDescs()[cat] || [];
+        const descs = [...defaults, ...custom.filter(d => !defaults.includes(d))];
+        container.innerHTML = descs.map(d => {
+            const sel = d === current ? 'selected' : '';
+            const isCustom = !defaults.includes(d);
+            const star = isCustom ? ' <span style=\"font-size:0.65rem;opacity:0.55;\">★</span>' : '';
+            return `<button type="button" class="tx-chip ${sel}" onclick="selectTxDesc('${d.replace(/'/g,"\\'")}')">` + d + star + `</button>`;
+        }).join('');
+    }
+
+    function selectTxDesc(desc) {
+        const descVal = document.getElementById('input-tx-desc-val');
+        const descText = document.getElementById('input-tx-desc');
+        if (descVal) descVal.value = desc;
+        if (descText) descText.value = desc;
+        // Mise à jour visuelle chips desc
+        document.querySelectorAll('#tx-desc-chips .tx-chip').forEach(btn => {
+            btn.classList.toggle('selected', btn.textContent.trim() === desc);
+        });
+        // Afficher montant
+        const montantSection = document.getElementById('tx-montant-section');
+        const submitBtn = document.getElementById('tx-submit-btn');
+        if (montantSection) montantSection.style.display = 'block';
+        if (submitBtn) submitBtn.style.display = 'block';
+        // Focus montant
+        setTimeout(() => document.getElementById('input-tx-montant')?.focus(), 50);
+        checkAutoSubmit();
+    }
+
+    function onDescTextInput() {
+        const val = document.getElementById('input-tx-desc')?.value?.trim() || '';
+        const descVal = document.getElementById('input-tx-desc-val');
+        if (descVal) descVal.value = val;
+        // Déselectionner les chips si saisie libre
+        document.querySelectorAll('#tx-desc-chips .tx-chip').forEach(btn => {
+            btn.classList.toggle('selected', btn.textContent.trim() === val);
+        });
+        // Afficher montant dès qu'il y a quelque chose
+        const montantSection = document.getElementById('tx-montant-section');
+        const submitBtn = document.getElementById('tx-submit-btn');
+        if (montantSection) montantSection.style.display = val ? 'block' : 'none';
+        if (submitBtn) submitBtn.style.display = val ? 'block' : 'none';
+        debouncedAutoSubmit();
     }
 
     let epargneMode = 'depot'; // 'depot' = négatif, 'retrait' = positif
@@ -9182,6 +9319,80 @@ if ('serviceWorker' in navigator) {
             resetIndicator();
         }
     }, { passive: true });
+})();
+</script>
+
+
+<script>
+// ===== AUTO-LOGOUT 5 MIN =====
+(function() {
+    const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+    const WARN_MS    = 60 * 1000;      // avertissement 1 min avant
+    let idleTimer, warnTimer, warnEl;
+
+    function createWarnBanner() {
+        if (document.getElementById('idle-warn')) return;
+        const el = document.createElement('div');
+        el.id = 'idle-warn';
+        el.style.cssText = [
+            'position:fixed','bottom:80px','left:50%','transform:translateX(-50%)',
+            'z-index:9999','background:#1a1a1a','border:1px solid rgba(255,100,0,0.5)',
+            'color:#f97316','border-radius:12px','padding:12px 20px',
+            'font-family:Inter,sans-serif','font-size:0.85rem','font-weight:600',
+            'box-shadow:0 8px 32px rgba(0,0,0,0.6)','text-align:center',
+            'animation:idle-fadein 0.3s ease'
+        ].join(';');
+        el.innerHTML = '⚠️ Déconnexion automatique dans <span id="idle-countdown">60</span>s — bougez pour annuler';
+        document.body.appendChild(el);
+        warnEl = el;
+
+        // Countdown
+        let remaining = 60;
+        const tick = setInterval(() => {
+            remaining--;
+            const cd = document.getElementById('idle-countdown');
+            if (cd) cd.textContent = remaining;
+            if (remaining <= 0) clearInterval(tick);
+        }, 1000);
+        el._tick = tick;
+
+        // Injecter l'animation si absente
+        if (!document.getElementById('idle-style')) {
+            const s = document.createElement('style');
+            s.id = 'idle-style';
+            s.textContent = '@keyframes idle-fadein{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}';
+            document.head.appendChild(s);
+        }
+    }
+
+    function removeWarnBanner() {
+        const el = document.getElementById('idle-warn');
+        if (el) { clearInterval(el._tick); el.remove(); }
+    }
+
+    function resetIdle() {
+        clearTimeout(idleTimer);
+        clearTimeout(warnTimer);
+        removeWarnBanner();
+
+        warnTimer = setTimeout(() => {
+            // Ne montrer l'avertissement que si l'utilisateur est connecté
+            if (typeof sb !== 'undefined') createWarnBanner();
+        }, TIMEOUT_MS - WARN_MS);
+
+        idleTimer = setTimeout(() => {
+            if (typeof firebaseLogout === 'function') {
+                firebaseLogout();
+            }
+        }, TIMEOUT_MS);
+    }
+
+    // Tous les événements qui comptent comme activité
+    const events = ['mousemove','mousedown','keydown','touchstart','touchmove','scroll','wheel','click','input','focus'];
+    events.forEach(ev => document.addEventListener(ev, resetIdle, { passive: true, capture: true }));
+
+    // Démarrer
+    resetIdle();
 })();
 </script>
 
