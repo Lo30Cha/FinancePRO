@@ -447,18 +447,7 @@
         @media (max-width: 768px) {
             #demo-banner { bottom: 58px !important; }
 
-            /* Tableau transactions : masquer Description sur mobile, garder Date visible */
-            #tab-transactions .card table { table-layout: fixed; width: 100%; }
-            #tab-transactions .card table th:nth-child(1),
-            #tab-transactions .card table td:nth-child(1) { width: 20%; font-size: 0.65rem; padding: 6px 4px; }
-            #tab-transactions .card table th:nth-child(2),
-            #tab-transactions .card table td:nth-child(2) { width: 26%; font-size: 0.65rem; padding: 6px 4px; }
-            #tab-transactions .card table th:nth-child(3),
-            #tab-transactions .card table td:nth-child(3) { display: none; } /* Cacher Description */
-            #tab-transactions .card table th:nth-child(4),
-            #tab-transactions .card table td:nth-child(4) { width: 30%; font-size: 0.65rem; padding: 6px 4px; text-align: right; }
-            #tab-transactions .card table th:nth-child(5),
-            #tab-transactions .card table td:nth-child(5) { width: 24%; padding: 4px 2px; }
+        /* Mobile: description colonne masquée dans la liste day-blocks (géré par overflow ellipsis) */
         }
         @media (max-width: 390px) {
             .nav-icon { width:22px !important; height:22px !important; }
@@ -738,6 +727,56 @@
             border-color: var(--danger);
             transform: none; box-shadow: none;
         }
+
+        /* ── Day blocks ── */
+        .tx-day-list { display: flex; flex-direction: column; gap: 10px; }
+        .tx-day-block {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .tx-day-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 9px 14px;
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+        }
+        .tx-day-label {
+            font-size: 0.75rem; font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase; letter-spacing: 0.6px;
+        }
+        .tx-day-label.is-today { color: var(--accent-blue); }
+        .tx-day-total {
+            font-size: 0.8rem; font-weight: 700;
+            font-family: 'Inter', sans-serif;
+        }
+        .tx-row {
+            display: grid;
+            grid-template-columns: auto 1fr auto auto;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 14px;
+            border-bottom: 1px solid var(--border-2);
+            transition: background 0.15s;
+        }
+        .tx-row:last-child { border-bottom: none; }
+        .tx-row:hover { background: var(--accent-subtle); }
+        .tx-row-desc {
+            font-size: 0.86rem; color: var(--text-primary);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            min-width: 0;
+        }
+        .tx-row-amount {
+            font-size: 0.86rem; font-weight: 700;
+            font-family: 'Inter', sans-serif; white-space: nowrap;
+        }
+        .tx-empty {
+            text-align: center; padding: 36px 20px;
+            color: var(--text-secondary); font-size: 0.88rem;
+        }
+
+        /* ── Quick date chips ── */
         @media (max-width: 900px) {
             .tx-form-grid { grid-template-columns: 1fr 1fr; }
             .tx-form-group--desc { grid-column: span 2; }
@@ -3254,7 +3293,15 @@
             <!-- 1 · DATE -->
             <div class="tx-form-group" style="margin-bottom:14px;">
                 <label class="tx-label">📅 Date</label>
-                <input type="date" id="input-tx-date" class="tx-date-input" oninput="checkAutoSubmit()">
+                <div class="month-nav-card" style="margin-bottom:0;">
+                    <button class="btn secondary month-nav-btn" type="button" onclick="shiftTxDay(1)">←</button>
+                    <div class="month-nav-center">
+                        <div class="month-label" id="tx-day-label">Aujourd'hui</div>
+                    </div>
+                    <button class="btn secondary month-nav-btn" type="button" id="tx-day-next-btn" onclick="shiftTxDay(-1)" disabled>→</button>
+                    <button class="btn month-nav-btn month-today-btn" type="button" onclick="setTxToday()">📅 Aujourd'hui</button>
+                </div>
+                <input type="date" id="input-tx-date" style="display:none;">
             </div>
 
             <!-- 2 · CATÉGORIE -->
@@ -3332,18 +3379,7 @@
                 </div>
             </div>
 
-            <table>
-                <thead>
-                    <tr>
-                        <th onclick="sortTransactionsBy('date')">Date 📌</th>
-                        <th onclick="sortTransactionsBy('categorie')">Catégorie</th>
-                        <th onclick="sortTransactionsBy('desc')">Description</th>
-                        <th onclick="sortTransactionsBy('montant')">Montant</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="table-all-transactions"></tbody>
-            </table>
+            <div id="table-all-transactions" class="tx-day-list"></div>
         </div>
 </section>
     </div>
@@ -5014,6 +5050,8 @@ window.closeHelp = function() {
         renderTransactions();
         updateDataStats();
         refreshDescriptionDatalist();
+        // Initialiser le navigateur de jour si la date n'est pas encore définie
+        if (typeof _updateTxDayInput === 'function') _updateTxDayInput();
     }
 
     // Couleurs adaptatives charts (thème noir/blanc)
@@ -6141,22 +6179,7 @@ window.closeHelp = function() {
             return sortOrder.asc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         });
 
-        document.getElementById('table-all-transactions').innerHTML = sorted.map(t => {
-            const isRev = isRevenue(t);
-            const displayAmount = isRev ? `+${getAbsoluteAmount(t).toFixed(2)}` : `-${getAbsoluteAmount(t).toFixed(2)}`;
-            const idStr = JSON.stringify(t.id);
-            return `
-            <tr>
-                <td>${t.date.toLocaleDateString('fr-FR')}</td>
-                <td><span class="badge badge-category">${t.categorie}</span></td>
-                <td>${sanitizeStr(t.desc)}</td>
-                <td class="${isRev ? 'text-success' : 'text-danger'}"><span class="amount-hidden">${displayAmount} €</span></td>
-                <td class="tx-action-cell">
-                    <button class="tx-btn-edit" onclick="openEditModal(${idStr})" title="Modifier">✏️</button>
-                    <button class="tx-btn-delete" onclick="deleteTransaction(${idStr})" title="Supprimer">🗑</button>
-                </td>
-            </tr>
-        `}).join('');
+        document.getElementById('table-all-transactions').innerHTML = renderDayBlocks(sorted);
     }
 
     // ===== UTILITIES =====
@@ -6373,22 +6396,103 @@ window.closeHelp = function() {
             return matchSearch && matchCat && matchType && matchDate;
         });
 
-        document.getElementById('table-all-transactions').innerHTML = filtered.map(t => {
-            const isRev = isRevenue(t);
-            const displayAmount = isRev ? `+${getAbsoluteAmount(t).toFixed(2)}` : `-${getAbsoluteAmount(t).toFixed(2)}`;
-            const idStr = JSON.stringify(t.id);
-            return `
-            <tr>
-                <td>${t.date.toLocaleDateString('fr-FR')}</td>
-                <td><span class="badge badge-category">${t.categorie}</span></td>
-                <td>${sanitizeStr(t.desc)}</td>
-                <td class="${isRev ? 'text-success' : 'text-danger'}"><span class="amount-hidden">${displayAmount} €</span></td>
-                <td class="tx-action-cell">
-                    <button class="tx-btn-edit" onclick="openEditModal(${idStr})" title="Modifier">✏️</button>
-                    <button class="tx-btn-delete" onclick="deleteTransaction(${idStr})" title="Supprimer">🗑</button>
-                </td>
-            </tr>
-        `}).join('');
+        document.getElementById('table-all-transactions').innerHTML = renderDayBlocks(filtered);
+    }
+
+    /* ── Render helper : groupe les transactions par jour en blocs ── */
+    function renderDayBlocks(txList) {
+        if (!txList || txList.length === 0) {
+            return '<div class="tx-empty">Aucune transaction à afficher</div>';
+        }
+        const sorted = [...txList].sort((a, b) => b.date - a.date);
+
+        // Grouper par clé date locale
+        const groups = {};
+        const groupOrder = [];
+        sorted.forEach(t => {
+            const key = t.date.toLocaleDateString('fr-FR');
+            if (!groups[key]) { groups[key] = []; groupOrder.push(key); }
+            groups[key].push(t);
+        });
+
+        // Références pour label Aujourd'hui / Hier
+        const todayStr = new Date().toLocaleDateString('fr-FR');
+        const yest = new Date(); yest.setDate(yest.getDate() - 1);
+        const yesterdayStr = yest.toLocaleDateString('fr-FR');
+
+        return groupOrder.map(key => {
+            const txs = groups[key];
+            let dayLabel, isToday = false;
+            if (key === todayStr) { dayLabel = `Aujourd'hui · ${key}`; isToday = true; }
+            else if (key === yesterdayStr) { dayLabel = `Hier · ${key}`; }
+            else { dayLabel = key; }
+
+            // Total net du jour
+            const net = txs.reduce((s, t) => s + t.montant, 0);
+            const netFmt = (net >= 0 ? '+' : '') + net.toFixed(2) + ' €';
+            const netClass = net > 0 ? 'text-success' : net < 0 ? 'text-danger' : '';
+
+            const rows = txs.map(t => {
+                const isRev = isRevenue(t);
+                const amt = isRev
+                    ? `+${getAbsoluteAmount(t).toFixed(2)} €`
+                    : `-${getAbsoluteAmount(t).toFixed(2)} €`;
+                const idStr = JSON.stringify(t.id);
+                return `<div class="tx-row">
+                    <span class="badge badge-category">${t.categorie}</span>
+                    <span class="tx-row-desc">${sanitizeStr(t.desc)}</span>
+                    <span class="tx-row-amount ${isRev ? 'text-success' : 'text-danger'}"><span class="amount-hidden">${amt}</span></span>
+                    <div class="tx-action-cell">
+                        <button class="tx-btn-edit" onclick="openEditModal(${idStr})" title="Modifier">✏️</button>
+                        <button class="tx-btn-delete" onclick="deleteTransaction(${idStr})" title="Supprimer">🗑</button>
+                    </div>
+                </div>`;
+            }).join('');
+
+            return `<div class="tx-day-block">
+                <div class="tx-day-header">
+                    <span class="tx-day-label${isToday ? ' is-today' : ''}">${dayLabel}</span>
+                    <span class="tx-day-total ${netClass}"><span class="amount-hidden">${netFmt}</span></span>
+                </div>
+                <div class="tx-day-rows">${rows}</div>
+            </div>`;
+        }).join('');
+    }
+
+    /* ── Day navigation (formulaire ajout) ── */
+    let _txDayOffset = 0; // 0 = aujourd'hui, 1 = hier, etc.
+
+    function _updateTxDayInput() {
+        const d = new Date();
+        d.setDate(d.getDate() - _txDayOffset);
+        const pad = n => String(n).padStart(2,'0');
+        const val = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+        const input = document.getElementById('input-tx-date');
+        if (input) input.value = val;
+
+        const label = document.getElementById('tx-day-label');
+        if (label) {
+            const short = d.toLocaleDateString('fr-FR');
+            const long  = d.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
+            const cap   = long.charAt(0).toUpperCase() + long.slice(1);
+            if (_txDayOffset === 0)      label.textContent = `Aujourd'hui · ${short}`;
+            else if (_txDayOffset === 1) label.textContent = `Hier · ${short}`;
+            else                         label.textContent = cap;
+        }
+        const nextBtn = document.getElementById('tx-day-next-btn');
+        if (nextBtn) nextBtn.disabled = _txDayOffset === 0;
+    }
+
+    function shiftTxDay(delta) {
+        _txDayOffset = Math.max(0, _txDayOffset + delta);
+        _updateTxDayInput();
+        checkAutoSubmit();
+    }
+
+    function setTxToday() {
+        _txDayOffset = 0;
+        _updateTxDayInput();
+        checkAutoSubmit();
     }
 
     // ===== EDIT TRANSACTION MODAL =====
