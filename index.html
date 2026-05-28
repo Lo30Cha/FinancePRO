@@ -2437,7 +2437,113 @@
   animation: splashOut 0.4s ease forwards;
   pointer-events: none;
 }
+
+/* ===== LAYOUT EDIT MODE — desktop uniquement ===== */
+
+/* Masqué en PWA / mobile */
+body.pwa-mode #nav-layout-btn { display: none !important; }
+@media (max-width: 768px) { #nav-layout-btn { display: none !important; } }
+
+/* Bouton sidebar actif */
+#nav-layout-btn.layout-active {
+    color: var(--accent-blue) !important;
+    background: rgba(0,217,255,0.08) !important;
+    border-left: 3px solid var(--accent-blue);
+}
+#nav-layout-btn.layout-active .nav-icon { color: var(--accent-blue) !important; }
+
+/* Badge flottant en haut du contenu actif */
+#layout-edit-badge {
+    display: none;
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 800;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--bg-primary);
+    background: var(--accent-blue);
+    border-radius: 20px;
+    padding: 5px 14px 5px 10px;
+    box-shadow: 0 4px 20px rgba(0,217,255,0.35);
+    pointer-events: none;
+    white-space: nowrap;
+    animation: pulseLayoutBadge 2.5s ease-in-out infinite;
+}
+@keyframes pulseLayoutBadge { 0%,100%{box-shadow:0 4px 20px rgba(0,217,255,0.35)} 50%{box-shadow:0 4px 28px rgba(0,217,255,0.6)} }
+#layout-edit-badge.visible { display: inline-flex; }
+
+/* ── Cartes en mode édition ──────────────────────────────────── */
+body.layout-editing .card,
+body.layout-editing .chart-full {
+    position: relative !important;
+    border: 2px dashed rgba(0,217,255,0.5) !important;
+    cursor: grab !important;
+    user-select: none;
+    transition: border-color 0.15s, box-shadow 0.15s, opacity 0.2s !important;
+    overflow: visible !important;   /* pour que les poignées dépassent */
+}
+body.layout-editing .card:active,
+body.layout-editing .chart-full:active { cursor: grabbing !important; }
+
+body.layout-editing .card.drag-source,
+body.layout-editing .chart-full.drag-source {
+    opacity: 0.35 !important;
+    border-style: solid !important;
+}
+body.layout-editing .card.drop-target-before { box-shadow: -5px 0 0 var(--accent-blue) !important; }
+body.layout-editing .card.drop-target-after  { box-shadow:  5px 0 0 var(--accent-blue) !important; }
+
+/* icône ⠿ drag hint */
+body.layout-editing .card::before,
+body.layout-editing .chart-full::before {
+    content: '⠿';
+    position: absolute;
+    top: 6px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.95rem;
+    color: var(--accent-blue);
+    opacity: 0.45;
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* ── Poignées de redimensionnement ──────────────────────────── */
+.block-resize-e, .block-resize-s {
+    display: none;
+    position: absolute;
+    z-index: 30;
+    background: var(--accent-blue);
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.18s;
+}
+body.layout-editing .block-resize-e,
+body.layout-editing .block-resize-s { display: block; }
+
+body.layout-editing .card:hover .block-resize-e,
+body.layout-editing .card:hover .block-resize-s,
+body.layout-editing .chart-full:hover .block-resize-e,
+body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
+
+.block-resize-e {
+    right: -6px; top: 20%; height: 60%; width: 10px;
+    cursor: ew-resize;
+}
+.block-resize-s {
+    bottom: -6px; left: 20%; width: 60%; height: 10px;
+    cursor: ns-resize;
+}
+.resizing-active .block-resize-e,
+.resizing-active .block-resize-s { opacity: 1 !important; }
 </style>
+
+<!-- Badge flottant mode mise en page -->
+<span id="layout-edit-badge">✦ Mode mise en page — glisser pour réordonner · poignées pour redimensionner</span>
 
 <div id="splash-screen">
   <canvas id="splash-canvas"></canvas>
@@ -2582,6 +2688,16 @@
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
             <span>Paramètres</span>
+        </div>
+        <!-- Bouton Mise en page — desktop uniquement (masqué en PWA/mobile via CSS) -->
+        <div class="nav-item" id="nav-layout-btn" onclick="toggleLayoutEditMode()" title="Mode édition de mise en page — redimensionner et réordonner les blocs" style="margin-top:4px;">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/>
+              <rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+            <span>Mise en page</span>
         </div>
     </div>
 
@@ -5007,6 +5123,8 @@ window.closeHelp = function() {
             Object.values(chartInstances).forEach(c => {
                 if (c && typeof c.resize === 'function') c.resize();
             });
+            // Appliquer overrides + mode édition sur le nouveau tab
+            if (typeof onTabSwitchLayout === 'function') onTabSwitchLayout(next);
         }, 360);
     }
 
@@ -7224,6 +7342,274 @@ window.closeHelp = function() {
     let customChartInstances = {};
     let currentModalMode = 'standard';
     let editingBlockId = null;
+    let layoutEditMode = false;
+    let _dragSrcId = null;
+    let layoutOverrides = {};   // { layoutId: {height, customSpan} }
+
+    // ── Chargement/sauvegarde des overrides de mise en page ──────────
+    function loadLayoutOverrides() {
+        try {
+            const s = localStorage.getItem('finance-layout-overrides');
+            if (s) layoutOverrides = JSON.parse(s);
+        } catch(e) { layoutOverrides = {}; }
+    }
+    function saveLayoutOverrides() {
+        localStorage.setItem('finance-layout-overrides', JSON.stringify(layoutOverrides));
+    }
+
+    // Applique les overrides stockés sur tous les éléments du tab actif
+    function applyLayoutOverrides(tabEl) {
+        if (!tabEl) return;
+        tabEl.querySelectorAll('.card[data-layout-id], .chart-full[data-layout-id]').forEach(el => {
+            const ov = layoutOverrides[el.dataset.layoutId];
+            if (!ov) return;
+            if (ov.height)      el.style.minHeight = ov.height + 'px';
+            if (ov.customSpan)  el.style.gridColumn = `span ${ov.customSpan}`;
+        });
+        // Mon Espace: customSpan/customHeight stockés dans customBlocks (déjà appliqués par renderCustomBlocksGrid)
+    }
+
+    // Assigne des data-layout-id stables à tous les .card/.chart-full du tab
+    function assignLayoutIds(tabEl) {
+        if (!tabEl) return;
+        const tabId = tabEl.id;
+        let idx = 0;
+        tabEl.querySelectorAll('.card, .chart-full').forEach(el => {
+            // Mon Espace: les custom-block ont déjà data-block-id, on les skip ici
+            if (el.classList.contains('custom-block')) {
+                el.dataset.layoutId = `custom::${el.dataset.blockId || idx}`;
+            } else if (!el.dataset.layoutId) {
+                el.dataset.layoutId = `${tabId}::${idx}`;
+            }
+            idx++;
+        });
+    }
+
+    // ── Toggle principal ──────────────────────────────────────────────
+    function toggleLayoutEditMode() {
+        // Bloqué sur PWA / mobile (sécurité JS en plus du CSS)
+        if (document.body.classList.contains('pwa-mode')) return;
+        if (window.innerWidth <= 768) return;
+
+        layoutEditMode = !layoutEditMode;
+        const btn   = document.getElementById('nav-layout-btn');
+        const badge = document.getElementById('layout-edit-badge');
+
+        if (layoutEditMode) {
+            document.body.classList.add('layout-editing');
+            btn && btn.classList.add('layout-active');
+            badge && badge.classList.add('visible');
+            enableLayoutEditOnActiveTab();
+        } else {
+            document.body.classList.remove('layout-editing');
+            btn && btn.classList.remove('layout-active');
+            badge && badge.classList.remove('visible');
+            disableLayoutEditOnActiveTab();
+            saveLayoutOverrides();
+        }
+    }
+
+    function getActiveTabEl() {
+        return document.querySelector('.tab-content.active');
+    }
+
+    function enableLayoutEditOnActiveTab() {
+        const tabEl = getActiveTabEl();
+        if (!tabEl) return;
+        assignLayoutIds(tabEl);
+        applyLayoutOverrides(tabEl);
+        tabEl.querySelectorAll('.card, .chart-full').forEach(el => {
+            attachDragHandlers(el);
+            attachResizeHandles(el);
+        });
+    }
+
+    function disableLayoutEditOnActiveTab() {
+        const tabEl = getActiveTabEl();
+        if (!tabEl) return;
+        tabEl.querySelectorAll('.card, .chart-full').forEach(el => {
+            el.setAttribute('draggable', 'false');
+            if (el._leStart)  el.removeEventListener('dragstart', el._leStart);
+            if (el._leEnd)    el.removeEventListener('dragend',   el._leEnd);
+            if (el._leOver)   el.removeEventListener('dragover',  el._leOver);
+            if (el._leLeave)  el.removeEventListener('dragleave', el._leLeave);
+            if (el._leDrop)   el.removeEventListener('drop',      el._leDrop);
+            el.classList.remove('drag-source','drop-target-before','drop-target-after');
+        });
+    }
+
+    // Appelé par switchTab pour re-câbler le tab nouvellement visible
+    function onTabSwitchLayout(tabEl) {
+        if (!layoutEditMode) {
+            assignLayoutIds(tabEl);
+            applyLayoutOverrides(tabEl);
+            return;
+        }
+        assignLayoutIds(tabEl);
+        applyLayoutOverrides(tabEl);
+        tabEl.querySelectorAll('.card, .chart-full').forEach(el => {
+            attachDragHandlers(el);
+            attachResizeHandles(el);
+        });
+    }
+
+    // ── Drag to reorder ────────────────────────────────────────────────
+    function attachDragHandlers(el) {
+        el.setAttribute('draggable', 'true');
+        el._leStart  = onBlockDragStart.bind(el);
+        el._leEnd    = onBlockDragEnd.bind(el);
+        el._leOver   = onBlockDragOver.bind(el);
+        el._leLeave  = onBlockDragLeave.bind(el);
+        el._leDrop   = onBlockDrop.bind(el);
+        el.addEventListener('dragstart', el._leStart);
+        el.addEventListener('dragend',   el._leEnd);
+        el.addEventListener('dragover',  el._leOver);
+        el.addEventListener('dragleave', el._leLeave);
+        el.addEventListener('drop',      el._leDrop);
+    }
+
+    function onBlockDragStart(e) {
+        _dragSrcId = this.dataset.layoutId;
+        this.classList.add('drag-source');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', _dragSrcId);
+    }
+    function onBlockDragEnd() {
+        this.classList.remove('drag-source');
+        document.querySelectorAll('.drop-target-before,.drop-target-after')
+            .forEach(el => el.classList.remove('drop-target-before','drop-target-after'));
+    }
+    function onBlockDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (this.dataset.layoutId === _dragSrcId) return;
+        const rect = this.getBoundingClientRect();
+        this.classList.remove('drop-target-before','drop-target-after');
+        this.classList.add(e.clientX < rect.left + rect.width / 2 ? 'drop-target-before' : 'drop-target-after');
+    }
+    function onBlockDragLeave(e) {
+        if (!this.contains(e.relatedTarget))
+            this.classList.remove('drop-target-before','drop-target-after');
+    }
+    function onBlockDrop(e) {
+        e.preventDefault();
+        const before   = this.classList.contains('drop-target-before');
+        this.classList.remove('drop-target-before','drop-target-after');
+        if (!_dragSrcId || this.dataset.layoutId === _dragSrcId) return;
+        const parent   = this.parentNode;
+        const srcEl    = parent.querySelector(`[data-layout-id="${_dragSrcId}"]`);
+        if (!srcEl) return;
+        if (before) parent.insertBefore(srcEl, this);
+        else this.after(srcEl);
+        // Si Mon Espace : synchroniser customBlocks avec le nouvel ordre DOM
+        if (getActiveTabEl()?.id === 'tab-custom') {
+            const newOrder = [...parent.querySelectorAll('.custom-block')]
+                .map(el => parseInt(el.dataset.blockId)).filter(Boolean);
+            customBlocks.sort((a,b) => newOrder.indexOf(a.id) - newOrder.indexOf(b.id));
+            saveCustomBlocks();
+        }
+    }
+
+    // ── Poignées de redimensionnement ─────────────────────────────────
+    function attachResizeHandles(el) {
+        if (!el.querySelector('.block-resize-e')) {
+            const re = document.createElement('div');
+            re.className = 'block-resize-e';
+            re.title = 'Largeur (colonnes)';
+            re.addEventListener('mousedown', ev => startResizeE(ev, el));
+            el.appendChild(re);
+        }
+        if (!el.querySelector('.block-resize-s')) {
+            const rs = document.createElement('div');
+            rs.className = 'block-resize-s';
+            rs.title = 'Hauteur';
+            rs.addEventListener('mousedown', ev => startResizeS(ev, el));
+            el.appendChild(rs);
+        }
+    }
+
+    function resizeChartsIn(el) {
+        // Chart.js 3.x
+        el.querySelectorAll('canvas').forEach(canvas => {
+            const inst = Chart.getChart ? Chart.getChart(canvas) : null;
+            if (inst) inst.resize();
+        });
+        // Chart.js via customChartInstances (Mon Espace)
+        const blockId = parseInt(el.dataset.blockId);
+        if (blockId && customChartInstances[blockId]) customChartInstances[blockId].resize();
+    }
+
+    // Resize East — span colonnes (1-3), uniquement dans grilles
+    function startResizeE(e, el) {
+        e.preventDefault(); e.stopPropagation();
+        el.classList.add('resizing-active');
+        const parent   = el.parentElement;
+        const parentW  = parent.getBoundingClientRect().width;
+        // Détecter le nombre de colonnes de la grille parente
+        const cols = (() => {
+            const s = getComputedStyle(parent).gridTemplateColumns;
+            return s ? s.trim().split(/\s+/).length : 3;
+        })();
+        const colW     = parentW / cols;
+        const startX   = e.clientX;
+        const curSpan  = parseInt(el.style.gridColumn?.replace('span ','')) || 1;
+
+        function onMove(ev) {
+            const newSpan = Math.max(1, Math.min(cols, Math.round(curSpan + (ev.clientX - startX) / colW)));
+            el.style.gridColumn = `span ${newSpan}`;
+            // Mettre à jour override en mémoire
+            const lid = el.dataset.layoutId;
+            if (lid) { layoutOverrides[lid] = layoutOverrides[lid] || {}; layoutOverrides[lid].customSpan = newSpan; }
+            // Mon Espace : sync customBlocks
+            const bid = parseInt(el.dataset.blockId);
+            const cb = bid && customBlocks.find(b => b.id === bid);
+            if (cb) cb.customSpan = newSpan;
+        }
+        function onUp() {
+            el.classList.remove('resizing-active');
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            saveLayoutOverrides();
+            if (customBlocks.some(b => b.id === parseInt(el.dataset.blockId))) saveCustomBlocks();
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    }
+
+    // Resize South — hauteur libre
+    function startResizeS(e, el) {
+        e.preventDefault(); e.stopPropagation();
+        el.classList.add('resizing-active');
+        const startY = e.clientY;
+        const startH = el.offsetHeight;
+
+        function onMove(ev) {
+            const newH = Math.max(120, startH + (ev.clientY - startY));
+            el.style.minHeight = newH + 'px';
+            // Ajuster le .chart-container interne pour suivre
+            const cc = el.querySelector('.chart-container');
+            if (cc) {
+                const headerH = el.querySelector('.custom-block-header, h3')?.offsetHeight || 40;
+                const pad     = 28; // padding + gap
+                cc.style.height = Math.max(80, newH - headerH - pad) + 'px';
+            }
+            const lid = el.dataset.layoutId;
+            if (lid) { layoutOverrides[lid] = layoutOverrides[lid] || {}; layoutOverrides[lid].height = Math.round(newH); }
+            const bid = parseInt(el.dataset.blockId);
+            const cb = bid && customBlocks.find(b => b.id === bid);
+            if (cb) cb.customHeight = Math.round(newH);
+        }
+        function onUp() {
+            el.classList.remove('resizing-active');
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            resizeChartsIn(el);           // ← les graphiques suivent
+            saveLayoutOverrides();
+            if (customBlocks.some(b => b.id === parseInt(el.dataset.blockId))) saveCustomBlocks();
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    }
 
     // Scratch pipeline state — sources est un tableau pour la multi-sélection
     const scratchState = { sources: ['all'], group: 'month', calc: 'sum', display: 'bar', category: 'Nourriture' };
@@ -7607,15 +7993,23 @@ window.closeHelp = function() {
         grid.innerHTML = '';
 
         customBlocks.forEach(block => {
-            const span = block.size === 'large' ? 3 : block.size === 'medium' ? 2 : 1;
+            const span = block.customSpan || (block.size === 'large' ? 3 : block.size === 'medium' ? 2 : 1);
             const div = document.createElement('div');
             div.className = 'card custom-block';
+            div.dataset.blockId = block.id;
             div.style.gridColumn = `span ${span}`;
+            if (block.customHeight) div.style.minHeight = block.customHeight + 'px';
             div.innerHTML = buildBlockHTML(block);
             grid.appendChild(div);
         });
 
         setTimeout(() => { customBlocks.forEach(block => { if (block.type !== 'kpi') renderBlockContent(block); }); }, 60);
+        // Ré-appliquer les overrides et le mode édition si actif
+        setTimeout(() => {
+            assignLayoutIds(document.getElementById('tab-custom'));
+            applyLayoutOverrides(document.getElementById('tab-custom'));
+            if (layoutEditMode) enableLayoutEditOnActiveTab();
+        }, 80);
     }
 
     function buildBlockHTML(block) {
@@ -9255,6 +9649,8 @@ window.enterLocalMode = function(file) {
             refreshAllViews();
             applySettings();
             loadCustomBlocks();
+            loadLayoutOverrides();
+            applyLayoutOverrides(document.querySelector('.tab-content.active'));
             renderSettingsUI();
         }, 400);
     } else {
@@ -9264,6 +9660,8 @@ window.enterLocalMode = function(file) {
         refreshAllViews();
         applySettings();
         loadCustomBlocks();
+        loadLayoutOverrides();
+        applyLayoutOverrides(document.querySelector('.tab-content.active'));
         renderSettingsUI();
     }
 };
