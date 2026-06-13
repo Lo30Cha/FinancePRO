@@ -343,6 +343,29 @@
             .chart-full .chart-container-tall { height: 340px; }
         }
 
+        /* ===== WIDE LAYOUT — MODE 16:9 ===== */
+        /* Grille 2 colonnes pour les graphiques côte à côte */
+        body.wide-charts .tab-content > .chart-full,
+        body.wide-charts .tab-content > .card.chart-full {
+            /* les chart-full deviennent des enfants d'un flow-root implicite */
+        }
+        /* On enveloppe via JS avec .charts-wide-row,
+           mais en CSS pur on peut aussi cibler les adjacents :
+           approche : wrapper généré par JS avec class charts-wide-row */
+        .charts-wide-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .charts-wide-row > .chart-full {
+            width: 100%;
+            margin-bottom: 0;
+        }
+        /* Hauteurs réduites en mode wide pour tenir dans la fenêtre */
+        body.wide-charts .charts-wide-row .chart-container      { height: 280px; }
+        body.wide-charts .charts-wide-row .chart-container-tall { height: 320px; }
+
         /* ===== COMPARISON & TRENDING ===== */
         .comparison-table { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:0; margin-top:10px; }
         .comparison-item { border-bottom:1px solid var(--border); padding:10px 0; }
@@ -9864,14 +9887,134 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('resize', updateWindowSize);
     updateWindowSize();
     // Patch openSettings pour rafraîchir à chaque ouverture
-    document.addEventListener('DOMContentLoaded', function() {
+    // DOM déjà parsé (script en fin de body), pas besoin de DOMContentLoaded
+    setTimeout(function() {
         var origOpen = window.openSettings;
-        window.openSettings = function() {
-            if (origOpen) origOpen.apply(this, arguments);
-            setTimeout(updateWindowSize, 50);
-        };
+        if (origOpen) {
+            window.openSettings = function() {
+                origOpen.apply(this, arguments);
+                setTimeout(updateWindowSize, 50);
+            };
+        }
         updateWindowSize();
+    }, 100);
+})();
+</script>
+
+<script>
+// ===== WIDE CHARTS — MODE 16:9 =====
+(function() {
+    var RATIO_THRESHOLD = 16 / 9; // ~1.777
+
+    function groupCharts(tab) {
+        // Défaire les wrappers existants
+        tab.querySelectorAll('.charts-wide-row').forEach(function(row) {
+            while (row.firstChild) row.parentNode.insertBefore(row.firstChild, row);
+            row.parentNode.removeChild(row);
+        });
+        // Regrouper les .chart-full consécutifs par paires
+        var children = Array.from(tab.children);
+        var i = 0;
+        while (i < children.length) {
+            if (children[i].classList && children[i].classList.contains('chart-full')) {
+                var seq = [];
+                while (i < children.length && children[i].classList && children[i].classList.contains('chart-full')) {
+                    seq.push(children[i]);
+                    i++;
+                }
+                for (var j = 0; j < seq.length; j += 2) {
+                    var wrapper = document.createElement('div');
+                    wrapper.className = 'charts-wide-row';
+                    seq[j].parentNode.insertBefore(wrapper, seq[j]);
+                    wrapper.appendChild(seq[j]);
+                    if (seq[j + 1]) wrapper.appendChild(seq[j + 1]);
+                }
+            } else {
+                i++;
+            }
+        }
+    }
+
+    function ungroupCharts(tab) {
+        tab.querySelectorAll('.charts-wide-row').forEach(function(row) {
+            while (row.firstChild) row.parentNode.insertBefore(row.firstChild, row);
+            row.parentNode.removeChild(row);
+        });
+    }
+
+    function resizeAllCharts() {
+        // Chart.js instances globales
+        if (window.Chart && Chart.instances) {
+            Object.values(Chart.instances).forEach(function(c) {
+                try { c.resize(); } catch(e) {}
+            });
+        }
+        // chartInstances de l'app
+        if (window.chartInstances) {
+            Object.values(window.chartInstances).forEach(function(c) {
+                if (c && typeof c.resize === 'function') try { c.resize(); } catch(e) {}
+            });
+        }
+    }
+
+    function applyLayout(isWide) {
+        document.querySelectorAll('.tab-content:not(#tab-settings)').forEach(function(tab) {
+            if (isWide) groupCharts(tab);
+            else ungroupCharts(tab);
+        });
+        setTimeout(resizeAllCharts, 60);
+    }
+
+    function checkLayout(force) {
+        var ratio = window.innerWidth / window.innerHeight;
+        var isWide = ratio >= RATIO_THRESHOLD;
+        var wasWide = document.body.classList.contains('wide-charts');
+        if (isWide === wasWide && !force) return;
+        document.body.classList.toggle('wide-charts', isWide);
+        applyLayout(isWide);
+    }
+
+    // Exposer globalement
+    window._wideChartsCheck    = checkLayout;
+    window._wideChartsGroupTab = groupCharts;
+
+    // Debounce resize
+    var _t;
+    window.addEventListener('resize', function() {
+        clearTimeout(_t);
+        _t = setTimeout(function() { checkLayout(false); }, 100);
     });
+
+    // Appel initial — le script est en fin de body, DOM déjà parsé
+    // On force=true pour ignorer le cache d'état (wasWide=false au premier tour)
+    setTimeout(function() { checkLayout(true); }, 200);
+
+    // Second appel après chargement Supabase + rendu des charts
+    setTimeout(function() { checkLayout(true); }, 1800);
+
+    // Hook sur refreshAllViews (appelé après chaque sync cloud)
+    var _origRefresh = window.refreshAllViews;
+    var _hookTimer;
+    Object.defineProperty(window, 'refreshAllViews', {
+        configurable: true,
+        get: function() { return _origRefresh; },
+        set: function(fn) {
+            _origRefresh = function() {
+                fn.apply(this, arguments);
+                clearTimeout(_hookTimer);
+                _hookTimer = setTimeout(function() { checkLayout(true); }, 150);
+            };
+        }
+    });
+    // Si refreshAllViews est déjà défini au moment où ce script tourne
+    if (typeof window.refreshAllViews === 'function') {
+        var _orig = window.refreshAllViews;
+        window.refreshAllViews = function() {
+            _orig.apply(this, arguments);
+            clearTimeout(_hookTimer);
+            _hookTimer = setTimeout(function() { checkLayout(true); }, 150);
+        };
+    }
 })();
 </script>
 
