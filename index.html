@@ -2005,7 +2005,7 @@
   align-items: center; justify-content: center;
   font-family: 'Inter', sans-serif;
   color: white;
-  opacity: 0; pointer-events: none;
+  opacity: 1; pointer-events: auto;
   transition: opacity .3s;
   background: #06080f;
   overflow: hidden;
@@ -3777,6 +3777,13 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                         ☁️ Synchroniser
                     </button>
                 </div>
+            </div>
+            <div class="settings-row">
+                <div>
+                    <div class="settings-row-label">🖥️ Taille de la fenêtre</div>
+                    <div class="settings-row-desc">Dimensions actuelles du viewport</div>
+                </div>
+                <div class="settings-row-control" id="window-size-display" style="font-size:0.82rem; font-weight:600; color:var(--text-secondary); font-family:'Inter',monospace;">—</div>
             </div>
         </div>
 
@@ -9843,6 +9850,28 @@ if ('serviceWorker' in navigator) {
             resetIndicator();
         }
     }, { passive: true });
+})();
+</script>
+
+
+<script>
+// ===== WINDOW SIZE DISPLAY =====
+(function() {
+    function updateWindowSize() {
+        var el = document.getElementById('window-size-display');
+        if (el) el.textContent = window.innerWidth + ' × ' + window.innerHeight + ' px';
+    }
+    window.addEventListener('resize', updateWindowSize);
+    updateWindowSize();
+    // Patch openSettings pour rafraîchir à chaque ouverture
+    document.addEventListener('DOMContentLoaded', function() {
+        var origOpen = window.openSettings;
+        window.openSettings = function() {
+            if (origOpen) origOpen.apply(this, arguments);
+            setTimeout(updateWindowSize, 50);
+        };
+        updateWindowSize();
+    });
 })();
 </script>
 
