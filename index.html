@@ -750,6 +750,21 @@
             border-color: var(--danger);
             transform: none; box-shadow: none;
         }
+        .tx-btn-projet {
+            width: auto; height: 32px; padding: 0 10px;
+            border-radius: 8px; border: 1px solid rgba(168,85,247,0.35);
+            color: var(--accent-purple); cursor: pointer; font-size: 0.78rem;
+            font-weight: 600; display: flex; align-items: center; gap: 5px;
+            transition: all 0.18s; flex-shrink: 0; background: none; font-family: inherit;
+            white-space: nowrap;
+        }
+        .tx-btn-projet.linked {
+            background: rgba(168,85,247,0.12);
+        }
+        .tx-btn-projet:hover {
+            background: rgba(168,85,247,0.18);
+            border-color: var(--accent-purple);
+        }
 
         /* ── Day blocks ── */
         .tx-day-list { display: flex; flex-direction: column; gap: 10px; }
@@ -2648,16 +2663,12 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
             </svg>
             <span>Mois en cours</span>
         </div>
-        <div class="nav-item" onclick="switchTab('tab-annee', this)">
-            <!-- Barres / Bilan annuel -->
+        <div class="nav-item" onclick="switchTab('tab-projets', this)">
+            <!-- Dossier / Projets & Voyages -->
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="12" y1="22" x2="12" y2="2" stroke="none"/>
-              <rect x="3"  y="14" width="4" height="8" rx="1" fill="currentColor" stroke="none" opacity="0.5"/>
-              <rect x="10" y="9"  width="4" height="13" rx="1" fill="currentColor" stroke="none" opacity="0.75"/>
-              <rect x="17" y="5"  width="4" height="17" rx="1" fill="currentColor" stroke="none"/>
-              <line x1="2" y1="22" x2="22" y2="22" stroke-width="1.5"/>
+              <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
             </svg>
-            <span>Bilan annuel</span>
+            <span>Projets & Voyages</span>
         </div>
         <div class="nav-item" onclick="switchTab('tab-periode', this)">
             <!-- Courbe / Période complète -->
@@ -2767,6 +2778,66 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
             <div style="display:flex; gap:10px; margin-top:4px;">
                 <button class="btn secondary" style="flex:1;" onclick="closeEditModal()">Annuler</button>
                 <button class="btn" style="flex:2;" onclick="saveEditTransaction()">💾 Enregistrer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: Lier une transaction à un projet/voyage -->
+<div id="projet-picker-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1085; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(6px);" onclick="if(event.target.id==='projet-picker-modal')closeProjetPicker()">
+    <div style="background:linear-gradient(160deg,#0f1629,#0a0e20); border:1px solid rgba(168,85,247,0.3); border-radius:18px; width:100%; max-width:420px; animation:slideIn 0.25s ease; box-shadow:0 30px 80px rgba(0,0,0,0.6);">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:20px 24px 14px; border-bottom:1px solid rgba(255,255,255,0.06);">
+            <h2 style="font-family:'Inter',sans-serif; font-size:1.1rem; margin:0;">📁 Lier à un projet / voyage</h2>
+            <button onclick="closeProjetPicker()" style="cursor:pointer; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:1rem; color:var(--text-secondary); background:none; border:none; transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.15)';this.style.color='#ef4444'" onmouseout="this.style.background='';this.style.color=''">✕</button>
+        </div>
+        <div style="padding:20px 24px 24px; display:flex; flex-direction:column; gap:14px;">
+            <div id="projet-picker-list" style="display:flex; flex-direction:column; gap:8px; max-height:260px; overflow-y:auto;"></div>
+            <div style="display:flex; gap:8px;">
+                <input type="text" id="projet-picker-new-name" placeholder="Nouveau projet ou voyage…" style="flex:1; margin-bottom:0;">
+                <button class="btn btn-small" onclick="createProjetFromPicker()">+ Créer</button>
+            </div>
+            <button class="btn secondary" style="width:100%;" onclick="closeProjetPicker()">Fermer</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: Créer/modifier un projet ou voyage -->
+<div id="projet-form-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1085; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(6px);" onclick="if(event.target.id==='projet-form-modal')closeProjetFormModal()">
+    <div style="background:linear-gradient(160deg,#0f1629,#0a0e20); border:1px solid rgba(168,85,247,0.3); border-radius:18px; width:100%; max-width:460px; animation:slideIn 0.25s ease; box-shadow:0 30px 80px rgba(0,0,0,0.6);">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:20px 24px 14px; border-bottom:1px solid rgba(255,255,255,0.06);">
+            <h2 style="font-family:'Inter',sans-serif; font-size:1.1rem; margin:0;" id="projet-form-title">📁 Nouveau projet / voyage</h2>
+            <button onclick="closeProjetFormModal()" style="cursor:pointer; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:1rem; color:var(--text-secondary); background:none; border:none; transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.15)';this.style.color='#ef4444'" onmouseout="this.style.background='';this.style.color=''">✕</button>
+        </div>
+        <div style="padding:20px 24px 24px; display:flex; flex-direction:column; gap:14px;">
+            <div>
+                <label class="tx-label">Nom</label>
+                <input type="text" id="projet-form-nom" style="margin-bottom:0;width:100%;" placeholder="Ex : Voyage au Japon">
+            </div>
+            <div>
+                <label class="tx-label">Type</label>
+                <div style="display:flex; gap:8px; margin-top:4px;">
+                    <button type="button" class="tx-chip selected" id="projet-form-type-projet" style="--chip-color:var(--accent-purple);flex:1;text-align:center;" onclick="setProjetFormType('projet')">📁 Projet</button>
+                    <button type="button" class="tx-chip" id="projet-form-type-voyage" style="--chip-color:var(--accent-purple);flex:1;text-align:center;" onclick="setProjetFormType('voyage')">✈️ Voyage</button>
+                </div>
+                <input type="hidden" id="projet-form-type" value="projet">
+            </div>
+            <div>
+                <label class="tx-label">Budget cible (0 = pas de suivi)</label>
+                <input type="number" id="projet-form-budget" step="0.01" min="0" style="margin-bottom:0;width:100%;" placeholder="0.00">
+            </div>
+            <div style="display:flex; gap:10px;">
+                <div style="flex:1;">
+                    <label class="tx-label">Début (optionnel)</label>
+                    <input type="date" id="projet-form-debut" style="margin-bottom:0;width:100%;">
+                </div>
+                <div style="flex:1;">
+                    <label class="tx-label">Fin (optionnel)</label>
+                    <input type="date" id="projet-form-fin" style="margin-bottom:0;width:100%;">
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:4px;">
+                <button class="btn secondary" style="flex:1;" onclick="closeProjetFormModal()">Annuler</button>
+                <button class="btn" style="flex:2;" onclick="saveProjetForm()">💾 Enregistrer</button>
             </div>
         </div>
     </div>
@@ -3161,34 +3232,78 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
         </div>
     </section>
     <!-- TAB: BILAN ANNUEL -->
-    <section id="tab-annee" class="tab-content">
+    <section id="tab-projets" class="tab-content">
         <div class="page-header">
-            <h1>Bilan annuel</h1>
-            <p>Vue macro des revenus, dépenses et tendances annuelles</p>
+            <h1>Projets & Voyages</h1>
+            <p>Suis les dépenses et entrées liées à un projet ou un voyage précis</p>
         </div>
 
-        <div class="chart-full">
-            <h3>Revenus vs dépenses</h3>
-            <div class="chart-container chart-container-tall">
-                <canvas id="chart-annee-bar"></canvas>
+        <!-- Vue liste -->
+        <div id="projets-list-view">
+            <div class="card" style="margin-bottom:16px;">
+                <button class="btn" style="width:100%;" onclick="openProjetFormModal(false)">+ Nouveau projet / voyage</button>
             </div>
+            <div id="projets-cards-grid" style="display:flex; flex-direction:column; gap:12px;"></div>
         </div>
 
-        <div class="chart-full">
-            <h3>Moyennes par catégorie</h3>
-            <div class="chart-container">
-                <canvas id="chart-annee-moyennes"></canvas>
+        <!-- Vue détail -->
+        <div id="projets-detail-view" style="display:none;">
+            <button class="btn secondary" style="margin-bottom:14px;" onclick="showProjetsListView()">← Retour aux projets</button>
+            <h2 id="projet-detail-title" style="margin:0 0 14px;"></h2>
+
+            <div class="grid-2">
+                <div class="stat-box">
+                    <div class="stat-label">Dépenses totales</div>
+                    <div class="stat-value text-danger amount-hidden" id="projet-detail-depenses">0.00 €</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Entrées totales</div>
+                    <div class="stat-value text-success amount-hidden" id="projet-detail-entrees">0.00 €</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Solde net</div>
+                    <div class="stat-value amount-hidden" id="projet-detail-solde">0.00 €</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Budget consommé</div>
+                    <div class="stat-value" id="projet-detail-budget-pct">—</div>
+                </div>
             </div>
-        </div>
 
-        <div class="card">
-            <h3>Dépenses récurrentes</h3>
-            <ul class="trending-list" id="list-recurring"></ul>
-        </div>
+            <div class="card" id="projet-detail-budget-card" style="margin-bottom:16px; display:none;">
+                <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:6px;">
+                    <span id="projet-detail-budget-label"></span>
+                </div>
+                <div style="background:var(--border-2); border-radius:8px; height:10px; overflow:hidden;">
+                    <div id="projet-detail-budget-bar" style="height:100%; border-radius:8px; transition:width 0.3s;"></div>
+                </div>
+            </div>
 
-        <div class="card">
-            <h3>Évolution des catégories</h3>
-            <ul class="trending-list" id="list-drift"></ul>
+            <div class="chart-full">
+                <h3>Répartition par catégorie</h3>
+                <div class="chart-container">
+                    <canvas id="chart-projet-categories"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-full">
+                <h3>Évolution cumulée</h3>
+                <div class="chart-container chart-container-tall">
+                    <canvas id="chart-projet-cumul"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+                    <h3 style="margin:0;">Transactions liées</h3>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn btn-small secondary" onclick="openProjetFormModal(true)">✏️ Modifier</button>
+                        <button class="btn btn-small secondary" onclick="archiveCurrentProjet()">📦 Archiver</button>
+                        <button class="btn btn-small" style="border-color:rgba(239,68,68,0.4);color:var(--danger);" onclick="deleteCurrentProjet()">🗑 Supprimer</button>
+                    </div>
+                </div>
+                <div id="projet-detail-transactions"></div>
+            </div>
         </div>
 </section>
     <!-- TAB: PERIODE COMPLETE -->
@@ -3408,30 +3523,13 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
             <p>Consultez, recherchez et gérez vos transactions</p>
         </div>
 
-        <!-- Barre cloud -->
-        <div id="cloud-sync-bar" style="display:none; flex-direction:row; align-items:center; justify-content:space-between; padding:10px 0; margin-bottom:12px; border-bottom:1px solid var(--border);">
-            <div style="display:flex; align-items:center; gap:10px;">
-                <span style="font-size:1.1rem;">☁️</span>
-                <div>
-                    <div style="font-size:0.88rem; font-weight:600;">Compte connecté</div>
-                    <div id="cloud-user-email" style="font-size:0.78rem; color:var(--text-secondary);"></div>
-                </div>
-            </div>
-            <button class="btn btn-small" onclick="saveToCloud()" >
-                Synchroniser
-            </button>
-        </div>
-
         <div class="tx-add-card" style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--border);">
-            <h3>Ajouter</h3>
-
             <!-- Champs cachés -->
             <input type="hidden" id="input-tx-cat" value="">
             <input type="hidden" id="input-tx-desc-val" value="">
 
             <!-- 1 · DATE -->
             <div class="tx-form-group" style="margin-bottom:14px;">
-                <label class="tx-label">📅 Date</label>
                 <div class="month-nav-card" style="margin-bottom:0;">
                     <button class="btn secondary month-nav-btn" type="button" onclick="shiftTxDay(1)">←</button>
                     <div class="month-nav-center">
@@ -4025,7 +4123,7 @@ const SLIDES = [
 <div style="display:flex;flex-direction:column;gap:8px;">
   ${[
     ['📅','Mois en cours','Tes revenus, dépenses et solde du mois. Navigue mois par mois.'],
-    ['📊','Bilan annuel','Graphique de toute l\'année. Taux d\'épargne calculé automatiquement.'],
+    ['📁','Projets & Voyages','Suis les dépenses et entrées liées à un projet ou un voyage précis.'],
     ['📈','Période complète','Analyse sur toutes tes données. Filtre par dates librement.'],
     ['💰','Patrimoine','Valeur totale de tes comptes, épargne et placements.'],
     ['🎛️','Mon Espace','Ton dashboard perso. Choisis exactement ce que tu veux voir.'],
@@ -4329,7 +4427,7 @@ const SLIDES = [
 <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:14px;">
   ${[
     ['📅','Mois en cours','Revenus, dépenses, solde du mois. Navigation mois par mois.'],
-    ['📊','Bilan annuel','Graphiques de toute l\'année. Taux d\'épargne calculé auto.'],
+    ['📁','Projets & Voyages','Dépenses et entrées liées à un projet ou un voyage. Budget cible optionnel.'],
     ['📈','Période complète','Analyse sur n\'importe quelle période.'],
     ['💰','Patrimoine','Tes comptes et placements. Courbe d\'évolution mensuelle.'],
     ['🎛️','Mon Espace','Dashboard perso avec blocs KPI, graphiques, tableaux.'],
@@ -4766,6 +4864,7 @@ window.closeHelp = function() {
                         const first = parseCSVLine(line)[0].trim();
                         if (first === '---PATRIMOINE---') return 'PATRIMOINE';
                         if (first === '---PRETS---') return 'PRETS';
+                        if (first === '---PROJETS---') return 'PROJETS';
                         // Supporter les deux variantes du marqueur évolution
                         if (first === '---PATRIMOINE-EVOLUTION---' ||
                             first.replace(/\s/g,'') === '---EVOLUTIONPATRIMOINE---' ||
@@ -4776,15 +4875,17 @@ window.closeHelp = function() {
                     let patrimoineStartIdx = -1;
                     let evolStartIdx = -1;
                     let pretsStartIdx = -1;
+                    let projetsStartIdx = -1;
                     shiftedLines.forEach((line, i) => {
                         const m = markerOf(line.trim());
                         if (m === 'PATRIMOINE' && patrimoineStartIdx === -1) patrimoineStartIdx = i;
                         if (m === 'EVOLUTION' && evolStartIdx === -1) evolStartIdx = i;
                         if (m === 'PRETS' && pretsStartIdx === -1) pretsStartIdx = i;
+                        if (m === 'PROJETS' && projetsStartIdx === -1) projetsStartIdx = i;
                     });
 
                     // Lignes de transactions = tout avant le premier marqueur (ou tout si aucun)
-                    const firstMarker = [patrimoineStartIdx, evolStartIdx, pretsStartIdx].filter(x => x > -1);
+                    const firstMarker = [patrimoineStartIdx, evolStartIdx, pretsStartIdx, projetsStartIdx].filter(x => x > -1);
                     const txEndIdx = firstMarker.length > 0 ? Math.min(...firstMarker) : shiftedLines.length;
 
                     // Filtrer les lignes vides et les lignes ne contenant que des virgules
@@ -4795,21 +4896,27 @@ window.closeHelp = function() {
 
                     const transactionLines = shiftedLines.slice(0, txEndIdx).filter(isDataLine);
 
+                    // Fin de section générique = index du prochain marqueur présent, sinon fin de fichier
+                    const markerStarts = [patrimoineStartIdx, evolStartIdx, pretsStartIdx, projetsStartIdx].filter(x => x > -1);
+                    const sectionEnd = start => {
+                        const nexts = markerStarts.filter(idx => idx > start);
+                        return nexts.length > 0 ? Math.min(...nexts) : shiftedLines.length;
+                    };
+
                     const patrimoineLines = patrimoineStartIdx > -1
-                        ? shiftedLines.slice(patrimoineStartIdx + 1,
-                            evolStartIdx > patrimoineStartIdx ? evolStartIdx : shiftedLines.length
-                          ).filter(isDataLine)
+                        ? shiftedLines.slice(patrimoineStartIdx + 1, sectionEnd(patrimoineStartIdx)).filter(isDataLine)
                         : [];
 
                     const evolLines = evolStartIdx > -1
-                        ? shiftedLines.slice(
-                            evolStartIdx + 1,
-                            pretsStartIdx > evolStartIdx ? pretsStartIdx : shiftedLines.length
-                          ).filter(isDataLine)
+                        ? shiftedLines.slice(evolStartIdx + 1, sectionEnd(evolStartIdx)).filter(isDataLine)
                         : [];
 
                     const pretsLines = pretsStartIdx > -1
-                        ? shiftedLines.slice(pretsStartIdx + 1).filter(isDataLine)
+                        ? shiftedLines.slice(pretsStartIdx + 1, sectionEnd(pretsStartIdx)).filter(isDataLine)
+                        : [];
+
+                    const projetsLines = projetsStartIdx > -1
+                        ? shiftedLines.slice(projetsStartIdx + 1, sectionEnd(projetsStartIdx)).filter(isDataLine)
                         : [];
 
                     // ── 3. Parser les transactions ───────────────────────────
@@ -4824,6 +4931,7 @@ window.closeHelp = function() {
                     let categoryIdx = headers.findIndex(h => h.includes('catégorie') || h.includes('categorie') || h.includes('categories'));
                     let montantIdx = headers.findIndex(h => h.includes('montant'));
                     let descIdx = headers.findIndex(h => h.includes('description'));
+                    let projetIdx = headers.findIndex(h => h.includes('projet'));
                     if (dateIdx === -1) dateIdx = 0;
                     if (categoryIdx === -1) categoryIdx = 1;
                     if (montantIdx === -1) montantIdx = 3;
@@ -4854,6 +4962,7 @@ window.closeHelp = function() {
                             const catStr    = values[categoryIdx] || '';
                             const montantStr= values[montantIdx]  || '';
                             const descStr   = values[descIdx]     || '';
+                            const projetNom = projetIdx > -1 ? sanitizeStr(values[projetIdx] || '') : '';
                             if (!dateStr || !montantStr) return null;
                             const parsedDate = parseDate(dateStr);
                             const montant = parseFloat(montantStr.replace(',', '.'));
@@ -4863,7 +4972,9 @@ window.closeHelp = function() {
                                 date: parsedDate,
                                 categorie: normalizeCategory(sanitizeStr(catStr)),
                                 montant,
-                                desc: sanitizeStr(descStr)
+                                desc: sanitizeStr(descStr),
+                                projetId: null,
+                                _projetNom: projetNom || null // résolu plus bas une fois les projets parsés
                             };
                         } catch(e) {
                             console.warn(`Row ${idx+1}: erreur`, e);
@@ -4897,6 +5008,56 @@ window.closeHelp = function() {
                         } catch(err) {
                             console.warn('Prêts import failed:', err);
                         }
+                    }
+
+                    // ── 6bis. Parser les projets/voyages ─────────────────────
+                    if (projetsLines.length >= 2) {
+                        try {
+                            const pHeaders = parseCSVLine(projetsLines[0]).map(h => h.toLowerCase().trim());
+                            const iNom    = pHeaders.findIndex(h => h.includes('nom'));
+                            const iType   = pHeaders.findIndex(h => h.includes('type'));
+                            const iBudget = pHeaders.findIndex(h => h.includes('budget'));
+                            const iDebut  = pHeaders.findIndex(h => h.includes('debut') || h.includes('début'));
+                            const iFin    = pHeaders.findIndex(h => h.includes('fin'));
+                            const iStatut = pHeaders.findIndex(h => h.includes('statut'));
+                            const iIcone  = pHeaders.findIndex(h => h.includes('icone') || h.includes('icône'));
+                            const importedProjets = projetsLines.slice(1).map(line => {
+                                const parts = parseCSVLine(line);
+                                const nom = sanitizeStr(parts[iNom] || '').trim();
+                                if (!nom) return null;
+                                return {
+                                    id: Math.random(),
+                                    nom,
+                                    type: (parts[iType] || 'projet').trim() || 'projet',
+                                    budget: parseFloat(parts[iBudget]) || 0,
+                                    dateDebut: (parts[iDebut] || '').trim() || null,
+                                    dateFin: (parts[iFin] || '').trim() || null,
+                                    statut: (parts[iStatut] || 'actif').trim() || 'actif',
+                                    icone: (parts[iIcone] || '').trim() || null
+                                };
+                            }).filter(Boolean);
+                            if (importedProjets.length > 0) {
+                                appSettings.projets = importedProjets;
+                                saveProjets();
+                                console.log('Projets importés:', importedProjets.length);
+                            }
+                        } catch(err) {
+                            console.warn('Projets import failed:', err);
+                        }
+                    }
+
+                    // Résoudre le nom de projet (colonne CSV) en projetId maintenant que les projets sont chargés
+                    if (transactions.some(t => t._projetNom)) {
+                        transactions.forEach(t => {
+                            if (t._projetNom) {
+                                let projet = getProjets().find(p => p.nom.toLowerCase() === t._projetNom.toLowerCase());
+                                if (!projet) projet = createProjet({ nom: t._projetNom });
+                                t.projetId = projet.id;
+                            }
+                            delete t._projetNom;
+                        });
+                    } else {
+                        transactions.forEach(t => { delete t._projetNom; });
                     }
 
                     // ── 4. Parser le patrimoine (comptes) ────────────────────
@@ -5006,7 +5167,8 @@ window.closeHelp = function() {
                                 date: parsedDate,
                                 categorie: normalizeCategory(sanitizeStr(catStr)),
                                 montant: parseFloat(montantStr) || 0,
-                                desc: sanitizeStr(descStr)
+                                desc: sanitizeStr(descStr),
+                                projetId: null
                             };
                         })
                         .filter(t => !isNaN(t.montant) && t.montant !== 0 && !isNaN(t.date.getTime()));
@@ -5110,7 +5272,7 @@ window.closeHelp = function() {
 
     // ===== TAB SWITCHING =====
     // ===== TAB SWITCHING =====
-    const TAB_ORDER = ['tab-mois','tab-annee','tab-periode','tab-patrimoine','tab-custom','tab-transactions'];
+    const TAB_ORDER = ['tab-mois','tab-projets','tab-periode','tab-patrimoine','tab-custom','tab-transactions'];
     window._TAB_ORDER = TAB_ORDER;
     let _currentTabId = 'tab-mois';
     Object.defineProperty(window, '_currentTabId', {
@@ -5192,7 +5354,7 @@ window.closeHelp = function() {
 
     function refreshAllViews() {
         renderMois();
-        renderAnnee();
+        renderProjets();
         renderPeriode();
         renderPatrimoine();
         renderTransactions();
@@ -5340,133 +5502,6 @@ window.closeHelp = function() {
                 }
             }
         });
-    }
-
-    function renderAnnee() {
-        if (transactions.length === 0) return;
-
-        const monthlyData = {};
-        const categoryMonthlies = {};
-
-        transactions.forEach(t => {
-            const key = `${t.date.getFullYear()}-${String(t.date.getMonth() + 1).padStart(2, '0')}`;
-            if (!monthlyData[key]) monthlyData[key] = { revenus: 0, depenses: 0, epargneEntree: 0, eparneSortie: 0 };
-            
-            if (isRevenue(t)) {
-                monthlyData[key].revenus += getAbsoluteAmount(t);
-            }
-            if (isExpense(t)) {
-                monthlyData[key].depenses += getAbsoluteAmount(t);
-                if (t.categorie !== 'Epargne') {
-                    if (!categoryMonthlies[t.categorie]) categoryMonthlies[t.categorie] = [];
-                    categoryMonthlies[t.categorie].push(getAbsoluteAmount(t));
-                }
-            }
-            // Ajouter épargne entrée et sortie
-            if (t.categorie === 'Epargne') {
-                if (t.montant < 0) {
-                    monthlyData[key].epargneEntree += getAbsoluteAmount(t);
-                } else {
-                    monthlyData[key].eparneSortie += getAbsoluteAmount(t);
-                }
-            }
-        });
-
-        const labels = Object.keys(monthlyData).sort();
-
-        // Bar chart — Chart.js
-        destroyChart('chartAnneeBar');
-        const _anneeLabels = labels;
-        chartInstances.chartAnneeBar = new Chart(document.getElementById('chart-annee-bar'), {
-            type: 'bar',
-            data: {
-                labels: _anneeLabels,
-                datasets: [
-                    { label: 'Revenus',        data: _anneeLabels.map(k => monthlyData[k].revenus),       backgroundColor: '#10b981', borderRadius: 4 },
-                    { label: 'Dépenses',       data: _anneeLabels.map(k => monthlyData[k].depenses),      backgroundColor: '#ef4444', borderRadius: 4 },
-                    { label: 'Épargne entrée', data: _anneeLabels.map(k => monthlyData[k].epargneEntree), backgroundColor: '#0ea5e9', borderRadius: 4 },
-                    { label: 'Épargne sortie', data: _anneeLabels.map(k => monthlyData[k].eparneSortie),  backgroundColor: '#f59e0b', borderRadius: 4 }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                scales: {
-                    y: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor(), callback: v => fmtAxis(v) } },
-                    x: { grid: { display: false }, ticks: { color: chartTextColor() } }
-                },
-                plugins: {
-                    legend: { labels: { color: chartTextColor() } },
-                    zoom: zoomOptions('chartAnneeBar')
-                },
-                onClick: (evt, elements) => {
-                    if (!elements.length) return;
-                    const key = _anneeLabels[elements[0].index];
-                    const [y, m] = key.split('-');
-                    const tx = transactions.filter(t => t.date.getFullYear()===+y && t.date.getMonth()===+m-1);
-                    const dsType = elements[0].datasetIndex === 0 ? 'revenues' : elements[0].datasetIndex === 1 ? 'expenses' : 'savings';
-                    showDetailModal(`${key} — ${['Revenus','Dépenses','Épargne entrée','Épargne sortie'][elements[0].datasetIndex]}`, tx, dsType);
-                }
-            }
-        });
-
-        // Category averages
-        const categoryStats = {};
-        Object.entries(categoryMonthlies).forEach(([cat, values]) => {
-            categoryStats[cat] = values.reduce((a, b) => a + b, 0) / values.length;
-        });
-        const _catAvgLabels = Object.keys(categoryStats).sort((a, b) => categoryStats[b] - categoryStats[a]);
-
-        destroyChart('chartAnneeMoyennes');
-        chartInstances.chartAnneeMoyennes = new Chart(document.getElementById('chart-annee-moyennes'), {
-            type: 'bar',
-            data: {
-                labels: _catAvgLabels,
-                datasets: [{
-                    label: 'Moyenne mensuelle (€)',
-                    data: _catAvgLabels.map(k => categoryStats[k]),
-                    backgroundColor: '#a855f7',
-                    borderRadius: 4
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                indexAxis: 'y',
-                scales: {
-                    x: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor(), callback: v => fmtAxis(v) } },
-                    y: { grid: { display: false }, ticks: { color: chartTextColor() } }
-                },
-                plugins: { legend: { display: false } , zoom: zoomOptions('chartAnneeMoyennes')},
-                onClick: (evt, elements) => {
-                    if (!elements.length) return;
-                    const cat = _catAvgLabels[elements[0].index];
-                    const tx = transactions.filter(t => t.categorie === cat && (isExpense(t) || t.categorie === 'Epargne'));
-                    showDetailModal(cat, tx, cat === 'Epargne' ? 'savings' : 'general');
-                }
-            }
-        });
-
-        // Recurring expenses
-        const recurring = detectRecurringExpenses();
-        document.getElementById('list-recurring').innerHTML = recurring.map(item => `
-            <li class="trending-item">
-                <span class="trending-name">
-                    <span class="badge badge-recurring">${item.categorie}</span> ${sanitizeStr(item.desc)}
-                </span>
-                <span class="trending-stat amount-hidden">${item.average.toFixed(2)} €</span>
-            </li>
-        `).join('');
-
-        // Drifting categories
-        const drifts = detectCategoryDrifts();
-        document.getElementById('list-drift').innerHTML = drifts.map(item => `
-            <li class="trending-item">
-                <span class="trending-name"><span class="badge badge-drift">${item.categorie}</span></span>
-                <span class="trending-stat">
-                    <span class="trending-arrow ${item.change > 0 ? 'up' : 'down'}">${item.change > 0 ? '↑' : '↓'}</span>
-                    ${Math.abs(item.change).toFixed(1)}%
-                </span>
-            </li>
-        `).join('');
     }
 
     function renderPeriode() {
@@ -6387,54 +6422,6 @@ window.closeHelp = function() {
         }
     }
 
-    function detectRecurringExpenses() {
-        const descriptions = {};
-        transactions.forEach(t => {
-            if (isExpense(t) && t.desc && t.categorie !== 'Epargne') {
-                if (!descriptions[t.desc]) descriptions[t.desc] = [];
-                descriptions[t.desc].push(getAbsoluteAmount(t));
-            }
-        });
-
-        return Object.entries(descriptions)
-            .filter(([_, values]) => values.length >= 3)
-            .map(([desc, values]) => ({
-                desc: desc,
-                categorie: transactions.find(t => t.desc === desc)?.categorie || 'N/A',
-                average: values.reduce((a, b) => a + b, 0) / values.length,
-                count: values.length
-            }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 8);
-    }
-
-    function detectCategoryDrifts() {
-        const firstMonth = transactions[0].date.getFullYear() * 12 + transactions[0].date.getMonth();
-        const lastMonth = transactions[transactions.length - 1].date.getFullYear() * 12 + transactions[transactions.length - 1].date.getMonth();
-
-        const categoryMonths = {};
-        transactions.forEach(t => {
-            if (isExpense(t) && t.categorie !== 'Epargne') {
-                if (!categoryMonths[t.categorie]) categoryMonths[t.categorie] = {};
-                const monthKey = t.date.getFullYear() * 12 + t.date.getMonth();
-                categoryMonths[t.categorie][monthKey] = (categoryMonths[t.categorie][monthKey] || 0) + getAbsoluteAmount(t);
-            }
-        });
-
-        return Object.entries(categoryMonths)
-            .map(([cat, months]) => {
-                const sorted = Object.entries(months).sort((a, b) => a[0] - b[0]);
-                if (sorted.length < 2) return null;
-                const first = sorted[0][1];
-                const last = sorted[sorted.length - 1][1];
-                const change = ((last - first) / first * 100);
-                return { categorie: cat, change, first, last };
-            })
-            .filter(x => x && Math.abs(x.change) > 15)
-            .sort((a, b) => Math.abs(b.change) - Math.abs(a.change))
-            .slice(0, 5);
-    }
-
     function addNewTransaction() {
         const date = document.getElementById('input-tx-date').value;
         const cat  = document.getElementById('input-tx-cat').value;
@@ -6463,7 +6450,8 @@ window.closeHelp = function() {
                 date: new Date(date),
                 categorie: cat,
                 desc: desc || 'Sans description',
-                montant
+                montant,
+                projetId: null
             });
 
             transactions.sort((a, b) => b.date - a.date);
@@ -6595,11 +6583,14 @@ window.closeHelp = function() {
                     ? `+${getAbsoluteAmount(t).toFixed(2)} €`
                     : `-${getAbsoluteAmount(t).toFixed(2)} €`;
                 const idStr = JSON.stringify(t.id);
+                const projet = t.projetId ? getProjetById(t.projetId) : null;
+                const projetBtnLabel = projet ? `${projet.icone || '📁'} ${sanitizeStr(projet.nom)}` : '📁 Projet';
                 return `<div class="tx-row">
                     <span class="badge badge-category">${t.categorie}</span>
                     <span class="tx-row-desc">${sanitizeStr(t.desc)}</span>
                     <span class="tx-row-amount ${isRev ? 'text-success' : 'text-danger'}"><span class="amount-hidden">${amt}</span></span>
                     <div class="tx-action-cell">
+                        <button class="tx-btn-projet${projet ? ' linked' : ''}" onclick="openProjetPicker(${idStr})" title="${projet ? 'Changer le projet lié' : 'Lier à un projet'}">${projetBtnLabel}</button>
                         <button class="tx-btn-edit" onclick="openEditModal(${idStr})" title="Modifier">✏️</button>
                         <button class="tx-btn-delete" onclick="deleteTransaction(${idStr})" title="Supprimer">🗑</button>
                     </div>
@@ -6696,6 +6687,59 @@ window.closeHelp = function() {
         document.getElementById('edit-tx-modal').style.display = 'none';
         document.body.classList.remove('modal-open');
         editingTxId = null;
+    }
+
+    // ===== PROJET PICKER (lier/délier une transaction à un projet) =====
+    let projetPickerTxId = null;
+
+    function openProjetPicker(id) {
+        projetPickerTxId = id;
+        renderProjetPickerList();
+        const input = document.getElementById('projet-picker-new-name');
+        if (input) input.value = '';
+        document.getElementById('projet-picker-modal').style.display = 'flex';
+        document.body.classList.add('modal-open');
+    }
+
+    function closeProjetPicker() {
+        document.getElementById('projet-picker-modal').style.display = 'none';
+        document.body.classList.remove('modal-open');
+        projetPickerTxId = null;
+    }
+
+    function renderProjetPickerList() {
+        const container = document.getElementById('projet-picker-list');
+        if (!container) return;
+        const t = transactions.find(t => t.id === projetPickerTxId);
+        const projets = getProjets().filter(p => p.statut !== 'archive');
+        if (projets.length === 0) {
+            container.innerHTML = '<div style="font-size:0.85rem;color:var(--text-secondary);">Aucun projet pour l\'instant. Crées-en un ci-dessous.</div>';
+            return;
+        }
+        container.innerHTML = projets.map(p => {
+            const active = t && t.projetId === p.id;
+            return `<button type="button" class="tx-chip ${active ? 'selected' : ''}" style="justify-content:space-between; display:flex; width:100%;--chip-color:var(--accent-purple);" onclick="selectProjetForTransaction(${JSON.stringify(p.id)})">
+                <span>${p.icone || '📁'} ${sanitizeStr(p.nom)}</span>
+                ${active ? '<span>✓</span>' : ''}
+            </button>`;
+        }).join('') + (t && t.projetId ? `<button type="button" class="btn secondary btn-small" onclick="selectProjetForTransaction(null)">Retirer du projet</button>` : '');
+    }
+
+    function selectProjetForTransaction(projetId) {
+        const idx = transactions.findIndex(t => t.id === projetPickerTxId);
+        if (idx === -1) return;
+        transactions[idx].projetId = projetId;
+        saveToLocalStorage();
+        refreshAllViews();
+        closeProjetPicker();
+    }
+
+    function createProjetFromPicker() {
+        const input = document.getElementById('projet-picker-new-name');
+        const nom = (input?.value || '').trim();
+        if (!nom) { alert('❌ Entre un nom pour le projet ou voyage'); return; }
+        const projet = createProjet({ nom });
+        if (projet) selectProjetForTransaction(projet.id);
     }
 
     function renderEditCatChips(selectedCat) {
@@ -6832,10 +6876,12 @@ window.closeHelp = function() {
             // Ligne 1 : date de dernière mise à jour
             const exportDate = lastUpdateDate || localISOString(new Date());
             let csv = `---LAST-UPDATE---,${exportDate}\n`;
-            csv += 'Date,Categorie,Description,Montant\n';
+            csv += 'Date,Categorie,Description,Montant,Projet\n';
             transactions.forEach(t => {
                 const desc = t.desc.replace(/"/g, '""');
-                csv += `${t.date.toLocaleDateString('fr-FR')},${t.categorie},"${desc}",${t.montant}\n`;
+                const projet = t.projetId ? getProjetById(t.projetId) : null;
+                const projetNom = projet ? projet.nom.replace(/"/g, '""') : '';
+                csv += `${t.date.toLocaleDateString('fr-FR')},${t.categorie},"${desc}",${t.montant},"${projetNom}"\n`;
             });
 
             // Section patrimoine dynamique
@@ -6860,6 +6906,17 @@ window.closeHelp = function() {
                 prets.forEach(p => {
                     const nomQ = (p.nom || '').replace(/"/g, '""');
                     csv += `${p.id},"${nomQ}",${p.montant},${p.taux},${p.duree},${p.dateDebut},${p.depense || 0}\n`;
+                });
+            }
+
+            // Section projets / voyages
+            const projetsList = getProjets();
+            if (projetsList.length > 0) {
+                csv += '\n---PROJETS---\n';
+                csv += 'nom,type,budget,dateDebut,dateFin,statut,icone\n';
+                projetsList.forEach(p => {
+                    const nomQ = (p.nom || '').replace(/"/g, '""');
+                    csv += `"${nomQ}",${p.type || 'projet'},${p.budget || 0},${p.dateDebut || ''},${p.dateFin || ''},${p.statut || 'actif'},${p.icone || ''}\n`;
                 });
             }
 
@@ -8767,8 +8824,285 @@ window.closeHelp = function() {
         compact: false,
         savingsTarget: 20,
         categories: [...DEFAULT_CATEGORIES],
-        budgets: { Nourriture: 400, Loyers: 800, Voiture: 200, Sortie: 150, Achat: 300 }
+        budgets: { Nourriture: 400, Loyers: 800, Voiture: 200, Sortie: 150, Achat: 300 },
+        projets: [] // { id, nom, type:'projet'|'voyage', budget, dateDebut, dateFin, statut:'actif'|'termine'|'archive', icone, couleur }
     };
+
+    // ===== PROJETS / VOYAGES =====
+    // Stockés dans appSettings (donc dans la clé 'finance-settings' déjà synchronisée
+    // avec Supabase) pour ne pas avoir à ajouter de colonne côté cloud.
+    function getProjets() {
+        return appSettings.projets || [];
+    }
+
+    function getProjetById(id) {
+        if (!id) return null;
+        return getProjets().find(p => p.id === id) || null;
+    }
+
+    function saveProjets() {
+        localStorage.setItem('finance-settings', JSON.stringify(appSettings));
+        if (window._cloudSyncTimer) clearTimeout(window._cloudSyncTimer);
+        window._cloudSyncTimer = setTimeout(() => {
+            if (typeof window.saveToCloud === 'function') window.saveToCloud();
+        }, 2000);
+    }
+
+    function createProjet({ nom, type = 'projet', budget = 0, dateDebut = null, dateFin = null, icone = null }) {
+        nom = (nom || '').trim();
+        if (!nom) return null;
+        if (!appSettings.projets) appSettings.projets = [];
+        const projet = {
+            id: Math.random(),
+            nom,
+            type,
+            budget: parseFloat(budget) || 0,
+            dateDebut: dateDebut || null,
+            dateFin: dateFin || null,
+            statut: 'actif',
+            icone: icone || (type === 'voyage' ? '✈️' : '📁')
+        };
+        appSettings.projets.push(projet);
+        saveProjets();
+        return projet;
+    }
+
+    function updateProjet(id, changes) {
+        const projet = getProjetById(id);
+        if (!projet) return;
+        Object.assign(projet, changes);
+        saveProjets();
+    }
+
+    function deleteProjet(id) {
+        appSettings.projets = getProjets().filter(p => p.id !== id);
+        // Dé-tagger les transactions liées
+        transactions.forEach(t => { if (t.projetId === id) t.projetId = null; });
+        saveProjets();
+        saveToLocalStorage();
+    }
+
+    function getProjetSpent(id) {
+        return transactions
+            .filter(t => t.projetId === id && isExpense(t))
+            .reduce((s, t) => s + getAbsoluteAmount(t), 0);
+    }
+
+    // ===== ONGLET PROJETS & VOYAGES =====
+    let currentProjetDetailId = null;
+    let projetFormEditId = null;
+
+    function renderProjets() {
+        renderProjetsListView();
+        if (currentProjetDetailId) renderProjetDetailView(currentProjetDetailId);
+    }
+
+    function renderProjetsListView() {
+        const grid = document.getElementById('projets-cards-grid');
+        if (!grid) return;
+        const projets = getProjets().filter(p => p.statut !== 'archive');
+        if (projets.length === 0) {
+            grid.innerHTML = '<div class="tx-empty">Aucun projet ou voyage pour l\'instant. Crée le premier ci-dessus.</div>';
+            return;
+        }
+        grid.innerHTML = projets.map(p => {
+            const depenses = getProjetSpent(p.id);
+            const entrees = transactions.filter(t => t.projetId === p.id && isRevenue(t)).reduce((s, t) => s + getAbsoluteAmount(t), 0);
+            const solde = entrees - depenses;
+            const hasBudget = p.budget > 0;
+            const pct = hasBudget ? Math.round(depenses / p.budget * 100) : null;
+            const barColor = pct === null ? 'var(--accent-purple)' : pct > 100 ? 'var(--danger)' : pct > 85 ? '#f59e0b' : 'var(--accent-purple)';
+            return `<div class="card" style="cursor:pointer;" onclick="showProjetDetail(${JSON.stringify(p.id)})">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <div style="font-weight:600;">${p.icone || (p.type === 'voyage' ? '✈️' : '📁')} ${sanitizeStr(p.nom)}</div>
+                    <span class="badge badge-category">${p.type === 'voyage' ? 'Voyage' : 'Projet'}</span>
+                </div>
+                ${hasBudget ? `
+                    <div style="display:flex; justify-content:space-between; font-size:0.78rem; color:var(--text-secondary); margin-bottom:4px;">
+                        <span class="amount-hidden">${depenses.toFixed(2)} € dépensés</span>
+                        <span>${pct}% de ${p.budget.toFixed(2)} €</span>
+                    </div>
+                    <div style="background:var(--border-2); border-radius:8px; height:8px; overflow:hidden; margin-bottom:8px;">
+                        <div style="height:100%; border-radius:8px; width:${Math.min(pct, 100)}%; background:${barColor};"></div>
+                    </div>
+                ` : `<div class="amount-hidden" style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:8px;">${depenses.toFixed(2)} € dépensés</div>`}
+                <div style="font-size:0.82rem;">Solde net : <span class="amount-hidden ${solde >= 0 ? 'text-success' : 'text-danger'}">${solde >= 0 ? '+' : ''}${solde.toFixed(2)} €</span></div>
+            </div>`;
+        }).join('');
+    }
+
+    function renderProjetDetailView(id) {
+        const p = getProjetById(id);
+        if (!p) { showProjetsListView(); return; }
+        const txs = transactions.filter(t => t.projetId === id);
+        const depenses = txs.filter(t => isExpense(t)).reduce((s, t) => s + getAbsoluteAmount(t), 0);
+        const entrees = txs.filter(t => isRevenue(t)).reduce((s, t) => s + getAbsoluteAmount(t), 0);
+        const solde = entrees - depenses;
+
+        const titleEl = document.getElementById('projet-detail-title');
+        if (titleEl) titleEl.textContent = `${p.icone || (p.type === 'voyage' ? '✈️' : '📁')} ${p.nom}`;
+
+        document.getElementById('projet-detail-depenses').textContent = `-${depenses.toFixed(2)} €`;
+        document.getElementById('projet-detail-entrees').textContent = `+${entrees.toFixed(2)} €`;
+        const soldeEl = document.getElementById('projet-detail-solde');
+        soldeEl.textContent = `${solde >= 0 ? '+' : ''}${solde.toFixed(2)} €`;
+        soldeEl.className = `stat-value amount-hidden ${solde >= 0 ? 'text-success' : 'text-danger'}`;
+
+        const budgetCard = document.getElementById('projet-detail-budget-card');
+        const pctEl = document.getElementById('projet-detail-budget-pct');
+        if (p.budget > 0) {
+            const pct = Math.round(depenses / p.budget * 100);
+            pctEl.textContent = `${pct}%`;
+            budgetCard.style.display = 'block';
+            document.getElementById('projet-detail-budget-label').textContent = `${depenses.toFixed(2)} € / ${p.budget.toFixed(2)} €`;
+            const bar = document.getElementById('projet-detail-budget-bar');
+            bar.style.width = `${Math.min(pct, 100)}%`;
+            bar.style.background = pct > 100 ? 'var(--danger)' : pct > 85 ? '#f59e0b' : 'var(--accent-purple)';
+        } else {
+            pctEl.textContent = '—';
+            budgetCard.style.display = 'none';
+        }
+
+        // Répartition par catégorie (dépenses uniquement)
+        const catTotals = {};
+        txs.filter(t => isExpense(t) && t.categorie !== 'Epargne').forEach(t => {
+            catTotals[t.categorie] = (catTotals[t.categorie] || 0) + getAbsoluteAmount(t);
+        });
+        const catLabels = Object.keys(catTotals).sort((a, b) => catTotals[b] - catTotals[a]);
+        destroyChart('chartProjetCategories');
+        if (catLabels.length > 0) {
+            chartInstances.chartProjetCategories = new Chart(document.getElementById('chart-projet-categories'), {
+                type: 'doughnut',
+                data: {
+                    labels: catLabels,
+                    datasets: [{
+                        data: catLabels.map(c => catTotals[c]),
+                        backgroundColor: ['#00d9ff', '#0ea5e9', '#a855f7', '#ec4899', '#f59e0b', '#10b981', '#ef4444'],
+                        borderColor: 'rgba(10,14,39,1)', borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { color: chartTextColor() } } }
+                }
+            });
+        }
+
+        // Évolution cumulée du solde du projet
+        const sortedTx = [...txs].sort((a, b) => a.date - b.date);
+        let cumul = 0;
+        const cumulData = sortedTx.map(t => {
+            if (isRevenue(t)) cumul += getAbsoluteAmount(t);
+            if (isExpense(t)) cumul -= getAbsoluteAmount(t);
+            return { date: t.date, value: cumul };
+        });
+        destroyChart('chartProjetCumul');
+        if (cumulData.length > 0) {
+            chartInstances.chartProjetCumul = new Chart(document.getElementById('chart-projet-cumul'), {
+                type: 'line',
+                data: {
+                    labels: cumulData.map(d => d.date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })),
+                    datasets: [{
+                        label: 'Solde cumulé (€)',
+                        data: cumulData.map(d => d.value),
+                        borderColor: '#a855f7', backgroundColor: 'rgba(168,85,247,0.08)',
+                        tension: 0.4, fill: true, pointRadius: 2, pointBackgroundColor: '#a855f7'
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        y: { grid: { color: chartGridColor() }, ticks: { color: chartTextColor(), callback: v => fmtAxis(v) } },
+                        x: { grid: { display: false }, ticks: { color: chartTextColor() } }
+                    },
+                    plugins: { legend: { labels: { color: chartTextColor() } } }
+                }
+            });
+        }
+
+        document.getElementById('projet-detail-transactions').innerHTML = renderDayBlocks(txs);
+    }
+
+    function showProjetDetail(id) {
+        currentProjetDetailId = id;
+        document.getElementById('projets-list-view').style.display = 'none';
+        document.getElementById('projets-detail-view').style.display = 'block';
+        renderProjetDetailView(id);
+    }
+
+    function showProjetsListView() {
+        currentProjetDetailId = null;
+        document.getElementById('projets-detail-view').style.display = 'none';
+        document.getElementById('projets-list-view').style.display = 'block';
+        renderProjetsListView();
+    }
+
+    function openProjetFormModal(editCurrent) {
+        const modal = document.getElementById('projet-form-modal');
+        const title = document.getElementById('projet-form-title');
+        if (editCurrent && currentProjetDetailId) {
+            const p = getProjetById(currentProjetDetailId);
+            if (!p) return;
+            projetFormEditId = p.id;
+            title.textContent = '✏️ Modifier le projet';
+            document.getElementById('projet-form-nom').value = p.nom;
+            document.getElementById('projet-form-budget').value = p.budget || '';
+            document.getElementById('projet-form-debut').value = p.dateDebut || '';
+            document.getElementById('projet-form-fin').value = p.dateFin || '';
+            setProjetFormType(p.type || 'projet');
+        } else {
+            projetFormEditId = null;
+            title.textContent = '📁 Nouveau projet / voyage';
+            document.getElementById('projet-form-nom').value = '';
+            document.getElementById('projet-form-budget').value = '';
+            document.getElementById('projet-form-debut').value = '';
+            document.getElementById('projet-form-fin').value = '';
+            setProjetFormType('projet');
+        }
+        modal.style.display = 'flex';
+        document.body.classList.add('modal-open');
+    }
+
+    function closeProjetFormModal() {
+        document.getElementById('projet-form-modal').style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+
+    function setProjetFormType(type) {
+        document.getElementById('projet-form-type').value = type;
+        document.getElementById('projet-form-type-projet').classList.toggle('selected', type === 'projet');
+        document.getElementById('projet-form-type-voyage').classList.toggle('selected', type === 'voyage');
+    }
+
+    function saveProjetForm() {
+        const nom = document.getElementById('projet-form-nom').value.trim();
+        if (!nom) { alert('❌ Entre un nom pour le projet ou voyage'); return; }
+        const type = document.getElementById('projet-form-type').value || 'projet';
+        const budget = parseFloat(document.getElementById('projet-form-budget').value) || 0;
+        const dateDebut = document.getElementById('projet-form-debut').value || null;
+        const dateFin = document.getElementById('projet-form-fin').value || null;
+
+        if (projetFormEditId) {
+            updateProjet(projetFormEditId, { nom, type, budget, dateDebut, dateFin, icone: type === 'voyage' ? '✈️' : '📁' });
+        } else {
+            createProjet({ nom, type, budget, dateDebut, dateFin });
+        }
+        closeProjetFormModal();
+        renderProjets();
+    }
+
+    function archiveCurrentProjet() {
+        if (!currentProjetDetailId) return;
+        updateProjet(currentProjetDetailId, { statut: 'archive' });
+        showProjetsListView();
+    }
+
+    function deleteCurrentProjet() {
+        if (!currentProjetDetailId) return;
+        if (!confirm('Supprimer ce projet ? Les transactions liées seront déliées mais pas supprimées.')) return;
+        deleteProjet(currentProjetDetailId);
+        showProjetsListView();
+    }
 
     function loadSettings() {
         try {
