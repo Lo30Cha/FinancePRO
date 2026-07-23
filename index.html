@@ -257,7 +257,7 @@
         .month-nav-center { flex: 1 1 200px; text-align: center; min-width: 0; }
         .month-nav-center .month-label { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 5px; }
         .month-nav-center .selects-row { display: flex; gap: 6px; justify-content: center; }
-        .month-nav-center select { flex:1; min-width:0; max-width:105px; margin-bottom:0; font-size:0.8rem; padding:5px 7px; }
+        .month-nav-center select { flex:1; min-width:0; max-width:140px; margin-bottom:0; font-size:0.8rem; padding:5px 7px; }
         .month-nav-btn { flex-shrink:0; padding:7px 11px !important; font-size:0.8rem !important; width:auto !important; white-space:nowrap; }
         .month-today-btn { flex:1 1 100%; order:10; }
         @media (min-width: 500px) { .month-today-btn { flex:0 1 auto; order:0; } }
@@ -751,15 +751,15 @@
             transform: none; box-shadow: none;
         }
         .tx-btn-projet {
-            width: auto; height: 32px; padding: 0 10px;
+            width: 32px; height: 32px; padding: 0;
             border-radius: 8px; border: 1px solid rgba(168,85,247,0.35);
-            color: var(--accent-purple); cursor: pointer; font-size: 0.78rem;
-            font-weight: 600; display: flex; align-items: center; gap: 5px;
+            color: var(--accent-purple); cursor: pointer; font-size: 0.85rem;
+            display: flex; align-items: center; justify-content: center;
             transition: all 0.18s; flex-shrink: 0; background: none; font-family: inherit;
-            white-space: nowrap;
         }
         .tx-btn-projet.linked {
-            background: rgba(168,85,247,0.12);
+            background: rgba(168,85,247,0.15);
+            border-color: rgba(168,85,247,0.6);
         }
         .tx-btn-projet:hover {
             background: rgba(168,85,247,0.18);
@@ -818,10 +818,12 @@
         @media (max-width: 900px) {
             .tx-form-grid { grid-template-columns: 1fr 1fr; }
             .tx-form-group--desc { grid-column: span 2; }
+            .tx-filters-row-3 { grid-template-columns: 1fr 1fr !important; }
         }
         @media (max-width: 600px) {
             .tx-form-grid { grid-template-columns: 1fr; }
             .tx-form-group--desc { grid-column: span 1; }
+            .tx-filters-row-3, .tx-filters-row-2 { grid-template-columns: 1fr !important; }
         }
 
 
@@ -3577,7 +3579,7 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
 
         <div class="card">
             <h3>🔎 Recherche et filtres</h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+            <div class="tx-filters-row tx-filters-row-3" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                 <div>
                     <label style="display: block; margin-bottom: 8px; font-size: 0.9rem; color: var(--text-secondary); font-weight: 500;">🔍 Rechercher</label>
                     <input type="text" id="input-search" placeholder="Description ou catégorie..." onkeyup="filterTransactionsList()">
@@ -3605,7 +3607,7 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                     </select>
                 </div>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+            <div class="tx-filters-row tx-filters-row-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                 <div>
                     <label style="display: block; margin-bottom: 8px; font-size: 0.9rem; color: var(--text-secondary); font-weight: 500;">📅 Du</label>
                     <input type="date" id="input-date-start" onchange="filterTransactionsList()">
@@ -6584,13 +6586,14 @@ window.closeHelp = function() {
                     : `-${getAbsoluteAmount(t).toFixed(2)} €`;
                 const idStr = JSON.stringify(t.id);
                 const projet = t.projetId ? getProjetById(t.projetId) : null;
-                const projetBtnLabel = projet ? `${projet.icone || '📁'} ${sanitizeStr(projet.nom)}` : '📁 Projet';
+                const projetIcon = projet ? (projet.icone || '📁') : '📁';
+                const projetTitle = projet ? `Lié à : ${sanitizeStr(projet.nom)} (cliquer pour changer)` : 'Lier à un projet';
                 return `<div class="tx-row">
                     <span class="badge badge-category">${t.categorie}</span>
                     <span class="tx-row-desc">${sanitizeStr(t.desc)}</span>
                     <span class="tx-row-amount ${isRev ? 'text-success' : 'text-danger'}"><span class="amount-hidden">${amt}</span></span>
                     <div class="tx-action-cell">
-                        <button class="tx-btn-projet${projet ? ' linked' : ''}" onclick="openProjetPicker(${idStr})" title="${projet ? 'Changer le projet lié' : 'Lier à un projet'}">${projetBtnLabel}</button>
+                        <button class="tx-btn-projet${projet ? ' linked' : ''}" onclick="openProjetPicker(${idStr})" title="${projetTitle}">${projetIcon}</button>
                         <button class="tx-btn-edit" onclick="openEditModal(${idStr})" title="Modifier">✏️</button>
                         <button class="tx-btn-delete" onclick="deleteTransaction(${idStr})" title="Supprimer">🗑</button>
                     </div>
@@ -9761,19 +9764,19 @@ function _buildDemoData() {
             { cat:'Nourriture',  montant:-295,   desc:'Courses semaine' },
             { cat:'Nourriture',  montant:-62,    desc:'Déjeuner collègues' },
             { cat:'Voiture',     montant:-320,   desc:'Révision voiture' },
-            { cat:'Sortie',      montant:-140,   desc:'Week-end à Lyon' },
+            { cat:'Sortie',      montant:-140,   desc:'Week-end à Lyon', projet:9002 },
             { cat:'Achat',       montant:-89,    desc:'Livres & tech' },
             { cat:'Epargne',     montant:-400,   desc:'PEA mensuel' },
             { cat:'Entrée',      montant:180,    desc:'Remboursement ami' },
         ]},
         { offset:2, rev:3650, items:[
             { cat:'Entrée',      montant:3200,   desc:'Salaire août' },
-            { cat:'Entrée',      montant:450,    desc:'Prime vacances' },
+            { cat:'Entrée',      montant:450,    desc:'Prime vacances', projet:9001 },
             { cat:'Loyers',      montant:-950,   desc:'Loyer appartement' },
             { cat:'Nourriture',  montant:-410,   desc:'Courses + marché' },
             { cat:'Voiture',     montant:-145,   desc:'Essence' },
-            { cat:'Sortie',      montant:-380,   desc:'Vacances mer' },
-            { cat:'Achat',       montant:-195,   desc:'Équipement plage' },
+            { cat:'Sortie',      montant:-380,   desc:'Vacances mer', projet:9001 },
+            { cat:'Achat',       montant:-195,   desc:'Équipement plage', projet:9001 },
             { cat:'Epargne',     montant:-500,   desc:'Épargne été' },
         ]},
         { offset:3, rev:3200, items:[
@@ -9782,7 +9785,7 @@ function _buildDemoData() {
             { cat:'Nourriture',  montant:-275,   desc:'Courses' },
             { cat:'Voiture',     montant:-155,   desc:'Essence' },
             { cat:'Sortie',      montant:-210,   desc:'Festival musique' },
-            { cat:'Achat',       montant:-599,   desc:'Nouveau téléphone' },
+            { cat:'Achat',       montant:-599,   desc:'Nouveau téléphone', projet:9003 },
             { cat:'Epargne',     montant:-200,   desc:'Livret A' },
             { cat:'Autres',      montant:-78,    desc:'Mutuelle santé' },
         ]},
@@ -9816,7 +9819,8 @@ function _buildDemoData() {
                 date: new Date(yy, mIdx, 3 + i * 2),
                 categorie: item.cat,
                 montant:   item.montant,
-                desc:      item.desc
+                desc:      item.desc,
+                projetId:  item.projet || null
             });
         });
     });
@@ -9867,6 +9871,14 @@ function _buildDemoCustomBlocks() {
     ];
 }
 
+function _buildDemoProjets() {
+    return [
+        { id:9001, nom:'Vacances d\'été',    type:'voyage', budget:800, dateDebut:null, dateFin:null, statut:'actif',   icone:'✈️' },
+        { id:9002, nom:'Week-end à Lyon',    type:'voyage', budget:200, dateDebut:null, dateFin:null, statut:'termine', icone:'✈️' },
+        { id:9003, nom:'Nouveau téléphone',  type:'projet', budget:650, dateDebut:null, dateFin:null, statut:'actif',   icone:'📁' },
+    ];
+}
+
 window.enterDemoMode = function() {
     window._demoMode = true;
 
@@ -9883,6 +9895,10 @@ window.enterDemoMode = function() {
     patrimoineNextId     = 6;
     customBlocks         = _buildDemoCustomBlocks();
     lastUpdateDate       = new Date().toISOString();
+
+    // Projets/voyages de démo — en mémoire uniquement (appSettings n'est pas sauvegardé ici)
+    window._demoSavedProjets = appSettings.projets;
+    appSettings.projets = _buildDemoProjets();
 
     // Bloquer toutes les sauvegardes
     window.saveToCloud   = function() { console.log('[DÉMO] saveToCloud bloqué'); };
