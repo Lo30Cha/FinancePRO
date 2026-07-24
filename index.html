@@ -1618,6 +1618,20 @@
             margin: 14px 0 5px;
         }
 
+        /* ── Projection Patrimoine ── */
+        .proj-section-title {
+            font-size: 0.85rem; font-weight: 700; color: var(--text-primary);
+            margin: 22px 0 10px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.06);
+        }
+        .proj-section-title:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+        .proj-bien-card {
+            background: rgba(168,85,247,0.05); border: 1px solid rgba(168,85,247,0.25);
+            border-radius: 12px; padding: 14px;
+        }
+        .proj-bien-card input { margin-bottom: 10px; }
+        .proj-bien-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .proj-bien-header input[type="text"] { flex: 1; margin: 0 8px 0 0; font-weight: 600; }
+
         /* ── Cat chip (block filter) ── */
         .cat-chip {
             display: inline-flex;
@@ -2936,6 +2950,7 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
         <div style="display:flex; padding:14px 26px 0; gap:4px; border-bottom:1px solid rgba(255,255,255,0.06);">
             <button id="modal-tab-standard" onclick="switchModalMode('standard')" class="modal-tab active-tab">⚙️ Standard</button>
             <button id="modal-tab-visual" onclick="switchModalMode('visual')" class="modal-tab">🎨 Visuel</button>
+            <button id="modal-tab-projection" onclick="switchModalMode('projection')" class="modal-tab">🏰 Projection</button>
         </div>
 
         <div style="padding:20px 26px 26px;">
@@ -3069,7 +3084,90 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
 
             </div>
 
-            <!-- Période (commun) -->
+            <!-- Période (commun standard/visuel) -->
+            <div id="modal-projection-fields" style="display:none;">
+                <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:18px; margin-top:4px;">Simule une trajectoire de patrimoine sur plusieurs années (salaire, immobilier locatif, obligations, actions). Hypothèses déterministes et fiscalité simplifiée — à ajuster selon ta situation réelle.</p>
+
+                <h4 class="proj-section-title">📅 Général</h4>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div>
+                        <label class="modal-label">Horizon (années)</label>
+                        <input type="number" id="proj-horizon" value="20" min="1" max="60">
+                    </div>
+                    <div>
+                        <label class="modal-label">Patrimoine de départ (€)</label>
+                        <input type="number" id="proj-patrimoine-depart" value="0" min="0" step="100">
+                    </div>
+                </div>
+                <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; color:var(--text-secondary); margin:2px 0 20px; cursor:pointer;">
+                    <input type="checkbox" id="proj-reinvestir" style="width:auto; margin:0;">
+                    Réinvestir le cash-flow locatif net positif (sinon il reste en cash disponible)
+                </label>
+
+                <h4 class="proj-section-title">💼 Salaire & épargne</h4>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div>
+                        <label class="modal-label">Salaire net mensuel (€)</label>
+                        <input type="number" id="proj-salaire-mensuel" value="2500" min="0" step="50">
+                    </div>
+                    <div>
+                        <label class="modal-label">Progression annuelle (%)</label>
+                        <input type="number" id="proj-salaire-progression" value="2" step="0.1">
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div>
+                        <label class="modal-label">Investi chaque mois (€)</label>
+                        <input type="number" id="proj-invest-mensuel" value="500" min="0" step="50">
+                    </div>
+                    <div>
+                        <label class="modal-label">Part vers Actions (%) <span style="color:var(--text-secondary);font-weight:400;">— reste = Obligations</span></label>
+                        <input type="number" id="proj-alloc-actions" value="60" min="0" max="100">
+                    </div>
+                </div>
+
+                <h4 class="proj-section-title">🏠 Immobilier locatif (colocation)</h4>
+                <div id="proj-biens-list" style="display:flex; flex-direction:column; gap:12px; margin-bottom:12px;"></div>
+                <button type="button" class="btn secondary btn-small" style="margin-bottom:20px;" onclick="addProjectionBien()">+ Ajouter un bien</button>
+                <div style="margin-bottom:20px;">
+                    <label class="modal-label">Taux d'imposition simplifié sur revenus fonciers nets (%)</label>
+                    <input type="number" id="proj-immo-taux-imposition" value="25" min="0" max="100">
+                </div>
+
+                <h4 class="proj-section-title">📜 Obligations</h4>
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:20px;">
+                    <div>
+                        <label class="modal-label">Capital initial (€)</label>
+                        <input type="number" id="proj-oblig-capital" value="0" min="0" step="100">
+                    </div>
+                    <div>
+                        <label class="modal-label">Rendement annuel (%)</label>
+                        <input type="number" id="proj-oblig-rendement" value="3" step="0.1">
+                    </div>
+                    <div>
+                        <label class="modal-label">Imposition gains (%)</label>
+                        <input type="number" id="proj-oblig-taux-imposition" value="30" min="0" max="100">
+                    </div>
+                </div>
+
+                <h4 class="proj-section-title">📈 Actions</h4>
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:8px;">
+                    <div>
+                        <label class="modal-label">Capital initial (€)</label>
+                        <input type="number" id="proj-actions-capital" value="0" min="0" step="100">
+                    </div>
+                    <div>
+                        <label class="modal-label">Rendement annuel (%)</label>
+                        <input type="number" id="proj-actions-rendement" value="6" step="0.1">
+                    </div>
+                    <div>
+                        <label class="modal-label">Imposition gains (%)</label>
+                        <input type="number" id="proj-actions-taux-imposition" value="30" min="0" max="100">
+                    </div>
+                </div>
+            </div>
+
+            <div id="modal-period-fields">
             <label class="modal-label">Période</label>
             <select id="block-period" onchange="toggleCustomDates()">
                 <option value="currentMonth">📅 Mois en cours</option>
@@ -3092,8 +3190,10 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                     </div>
                 </div>
             </div>
+            </div>
 
-            <!-- Filtre descriptions -->
+            <!-- Filtre descriptions (commun standard/visuel) -->
+            <div id="modal-desc-filter-fields">
             <label class="modal-label" style="display:flex;align-items:center;justify-content:space-between;">
                 <span>📝 Filtrer par description(s)</span>
                 <span style="font-size:0.75rem;color:var(--text-secondary);font-weight:400;">laisser vide = toutes</span>
@@ -3102,6 +3202,7 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                 style="margin-bottom:8px;" oninput="filterBlockDescChips()">
             <div id="block-desc-filter" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;max-height:140px;overflow-y:auto;padding:10px;background:rgba(0,0,0,0.2);border:1px solid rgba(51,65,85,0.4);border-radius:8px;">
                 <!-- peuplé dynamiquement -->
+            </div>
             </div>
 
             <!-- Taille -->
@@ -7598,6 +7699,8 @@ window.closeHelp = function() {
 
     // Scratch pipeline state — sources est un tableau pour la multi-sélection
     const scratchState = { sources: ['all'], group: 'month', calc: 'sum', display: 'bar', categories: [] };
+    let projectionBiensDraft = []; // biens immobiliers en cours d'édition dans le modal de bloc
+    let projectionBienNextId = 1;
 
     const CHART_COLORS = [
         '#00d9ff','#a855f7','#10b981','#ef4444','#f59e0b',
@@ -7765,20 +7868,265 @@ window.closeHelp = function() {
     function switchModalMode(mode) {
         currentModalMode = mode;
         const isVisual = mode === 'visual';
-        document.getElementById('modal-standard-fields').style.display = isVisual ? 'none' : '';
-        document.getElementById('modal-visual-fields').style.display = isVisual ? '' : 'none';
-        document.getElementById('block-modal-inner').style.maxWidth = isVisual ? '700px' : '580px';
+        const isProjection = mode === 'projection';
+        const isStandard = mode === 'standard';
 
-        document.getElementById('modal-tab-standard').classList.toggle('active-tab', !isVisual);
-        document.getElementById('modal-tab-visual').classList.toggle('active-tab', isVisual);
-        if (!document.getElementById('modal-tab-visual').style.color || isVisual) {
-            document.getElementById('modal-tab-standard').style.color = isVisual ? '' : 'var(--accent-blue)';
-            document.getElementById('modal-tab-standard').style.borderBottomColor = isVisual ? 'transparent' : 'var(--accent-blue)';
-            document.getElementById('modal-tab-visual').style.color = isVisual ? '#a855f7' : '';
-            document.getElementById('modal-tab-visual').style.borderBottomColor = isVisual ? '#a855f7' : 'transparent';
-        }
+        document.getElementById('modal-standard-fields').style.display = isStandard ? '' : 'none';
+        document.getElementById('modal-visual-fields').style.display = isVisual ? '' : 'none';
+        document.getElementById('modal-projection-fields').style.display = isProjection ? '' : 'none';
+        // Champs communs (Période, Filtre description) sans objet pour une projection simulée
+        document.getElementById('modal-period-fields').style.display = isProjection ? 'none' : '';
+        document.getElementById('modal-desc-filter-fields').style.display = isProjection ? 'none' : '';
+        document.getElementById('block-modal-inner').style.maxWidth = (isVisual || isProjection) ? '700px' : '580px';
+
+        const tabs = { standard: 'modal-tab-standard', visual: 'modal-tab-visual', projection: 'modal-tab-projection' };
+        const colors = { standard: 'var(--accent-blue)', visual: '#a855f7', projection: '#10b981' };
+        Object.keys(tabs).forEach(m => {
+            const el = document.getElementById(tabs[m]);
+            const active = m === mode;
+            el.classList.toggle('active-tab', active);
+            el.style.color = active ? colors[m] : '';
+            el.style.borderBottomColor = active ? colors[m] : 'transparent';
+        });
+
         if (isVisual) updateScratchSummary();
+        if (isProjection && projectionBiensDraft.length === 0 && editingBlockId === null) addProjectionBien();
     }
+
+    // ===== PROJECTION PATRIMOINE : gestion des biens (liste dynamique dans le modal) =====
+    function addProjectionBien() {
+        projectionBiensDraft.push({
+            id: projectionBienNextId++,
+            nom: `Bien ${projectionBiensDraft.length + 1}`,
+            prixAchat: 200000,
+            apport: 40000,
+            tauxPret: 3.5,
+            dureePret: 20,
+            anneeAchat: 0,
+            loyerParChambre: 450,
+            nbChambres: 3,
+            tauxOccupation: 90,
+            chargesAnnuellesPct: 10,
+            taxeFonciere: 1000,
+            appreciationAnnuelle: 2
+        });
+        renderProjectionBiensList();
+    }
+
+    function removeProjectionBien(id) {
+        projectionBiensDraft = projectionBiensDraft.filter(b => b.id !== id);
+        renderProjectionBiensList();
+    }
+
+    function updateProjectionBienField(id, field, value) {
+        const bien = projectionBiensDraft.find(b => b.id === id);
+        if (!bien) return;
+        bien[field] = (field === 'nom') ? value : (parseFloat(value) || 0);
+    }
+
+    function renderProjectionBiensList() {
+        const container = document.getElementById('proj-biens-list');
+        if (!container) return;
+        if (projectionBiensDraft.length === 0) {
+            container.innerHTML = `<div style="font-size:0.82rem;color:var(--text-secondary);">Aucun bien pour l'instant.</div>`;
+            return;
+        }
+        container.innerHTML = projectionBiensDraft.map(b => `
+            <div class="proj-bien-card">
+                <div class="proj-bien-header">
+                    <input type="text" value="${(b.nom||'').replace(/"/g,'&quot;')}" oninput="updateProjectionBienField(${b.id},'nom',this.value)" placeholder="Nom du bien">
+                    <button type="button" class="action-btn action-btn-delete" onclick="removeProjectionBien(${b.id})" title="Retirer ce bien">🗑</button>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <div>
+                        <label class="modal-label" style="margin-top:0;">Prix d'achat (€)</label>
+                        <input type="number" value="${b.prixAchat}" min="0" step="1000" oninput="updateProjectionBienField(${b.id},'prixAchat',this.value)">
+                    </div>
+                    <div>
+                        <label class="modal-label" style="margin-top:0;">Apport (€)</label>
+                        <input type="number" value="${b.apport}" min="0" step="500" oninput="updateProjectionBienField(${b.id},'apport',this.value)">
+                    </div>
+                    <div>
+                        <label class="modal-label" style="margin-top:0;">Taux prêt (%)</label>
+                        <input type="number" value="${b.tauxPret}" step="0.05" oninput="updateProjectionBienField(${b.id},'tauxPret',this.value)">
+                    </div>
+                    <div>
+                        <label class="modal-label" style="margin-top:0;">Durée prêt (ans)</label>
+                        <input type="number" value="${b.dureePret}" min="1" max="30" oninput="updateProjectionBienField(${b.id},'dureePret',this.value)">
+                    </div>
+                    <div>
+                        <label class="modal-label" style="margin-top:0;">Achat dans (ans)</label>
+                        <input type="number" value="${b.anneeAchat}" min="0" oninput="updateProjectionBienField(${b.id},'anneeAchat',this.value)">
+                    </div>
+                    <div>
+                        <label class="modal-label" style="margin-top:0;">Appréciation/an (%)</label>
+                        <input type="number" value="${b.appreciationAnnuelle}" step="0.1" oninput="updateProjectionBienField(${b.id},'appreciationAnnuelle',this.value)">
+                    </div>
+                    <div>
+                        <label class="modal-label" style="margin-top:0;">Loyer / chambre (€)</label>
+                        <input type="number" value="${b.loyerParChambre}" min="0" step="10" oninput="updateProjectionBienField(${b.id},'loyerParChambre',this.value)">
+                    </div>
+                    <div>
+                        <label class="modal-label" style="margin-top:0;">Nb chambres</label>
+                        <input type="number" value="${b.nbChambres}" min="1" max="20" oninput="updateProjectionBienField(${b.id},'nbChambres',this.value)">
+                    </div>
+                    <div>
+                        <label class="modal-label" style="margin-top:0;">Occupation (%)</label>
+                        <input type="number" value="${b.tauxOccupation}" min="0" max="100" oninput="updateProjectionBienField(${b.id},'tauxOccupation',this.value)">
+                    </div>
+                    <div>
+                        <label class="modal-label" style="margin-top:0;">Charges/an (% loyer)</label>
+                        <input type="number" value="${b.chargesAnnuellesPct}" min="0" max="100" oninput="updateProjectionBienField(${b.id},'chargesAnnuellesPct',this.value)">
+                    </div>
+                    <div style="grid-column:span 2;">
+                        <label class="modal-label" style="margin-top:0;">Taxe foncière (€/an)</label>
+                        <input type="number" value="${b.taxeFonciere}" min="0" step="50" oninput="updateProjectionBienField(${b.id},'taxeFonciere',this.value)">
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // ===== PROJECTION PATRIMOINE : moteur de simulation =====
+    function loanRemainingByMonths(montant, tauxAnnuel, dureeAns, moisEcoules) {
+        const dureeSure = Math.max(1, dureeAns);
+        const n = dureeSure * 12;
+        const mEcoules = Math.max(0, Math.min(moisEcoules, n));
+        const mensualite = calcMensualite(montant, tauxAnnuel, dureeSure);
+        if (tauxAnnuel === 0) return Math.max(0, montant - mensualite * mEcoules);
+        const r = tauxAnnuel / 100 / 12;
+        return Math.max(0, montant * Math.pow(1 + r, mEcoules) - mensualite * (Math.pow(1 + r, mEcoules) - 1) / r);
+    }
+
+    function computeProjectionSeries(config) {
+        const horizonAns = Math.max(1, config.horizon || 1);
+        const nMonths = horizonAns * 12;
+        const years = [], seriesCash = [], seriesActions = [], seriesObligations = [], seriesImmobilier = [], seriesTotal = [];
+
+        let cash = config.patrimoineDepart || 0;
+        let capitalActions = (config.actions && config.actions.capitalInitial) || 0;
+        let capitalObligations = (config.obligations && config.obligations.capitalInitial) || 0;
+
+        let actionsDebutAnnee = capitalActions;
+        let obligationsDebutAnnee = capitalObligations;
+        let apportsActionsAnnee = 0;
+        let apportsObligationsAnnee = 0;
+
+        const rActions = ((config.actions && config.actions.rendementAnnuel) || 0) / 100 / 12;
+        const rObligations = ((config.obligations && config.obligations.rendementAnnuel) || 0) / 100 / 12;
+        const allocActions = Math.min(100, Math.max(0, (config.salaire && config.salaire.allocationActions) ?? 60)) / 100;
+
+        const biensCalc = (config.biens || []).map(b => {
+            const montantEmprunte = Math.max(0, (b.prixAchat || 0) - (b.apport || 0));
+            const dureePret = Math.max(1, b.dureePret || 1);
+            return {
+                ...b,
+                dureePret,
+                montantEmprunte,
+                mensualite: montantEmprunte > 0 ? calcMensualite(montantEmprunte, b.tauxPret || 0, dureePret) : 0
+            };
+        });
+
+        for (let m = 0; m < nMonths; m++) {
+            const year = Math.floor(m / 12);
+            const moisDansAnnee = m % 12;
+
+            // Le montant investi chaque mois progresse comme le salaire (hypothèse : effort d'épargne proportionnel)
+            const investMensuel = ((config.salaire && config.salaire.investissementMensuel) || 0) * Math.pow(1 + ((config.salaire && config.salaire.progressionAnnuelle) || 0) / 100, year);
+            const apportActions = investMensuel * allocActions;
+            const apportObligations = investMensuel * (1 - allocActions);
+
+            capitalActions = capitalActions * (1 + rActions) + apportActions;
+            capitalObligations = capitalObligations * (1 + rObligations) + apportObligations;
+            apportsActionsAnnee += apportActions;
+            apportsObligationsAnnee += apportObligations;
+
+            let cashflowImmoNetMois = 0;
+            let valeurImmoNetteMois = 0;
+
+            biensCalc.forEach(b => {
+                const anneeAchat = b.anneeAchat || 0;
+                if (year < anneeAchat) return;
+                const moisDepuisAchat = m - anneeAchat * 12;
+                if (moisDepuisAchat < 0) return;
+
+                const loyerBrutMensuel = (b.loyerParChambre || 0) * (b.nbChambres || 0) * ((b.tauxOccupation ?? 100) / 100);
+                const chargesMensuelles = ((b.chargesAnnuellesPct || 0) / 100 * loyerBrutMensuel * 12 + (b.taxeFonciere || 0)) / 12;
+                const revenuFoncierNetMensuel = loyerBrutMensuel - chargesMensuelles;
+                const impotFoncierMensuel = Math.max(0, revenuFoncierNetMensuel) * ((config.tauxImpositionImmobilier || 0) / 100);
+                const mensualitePret = moisDepuisAchat < b.dureePret * 12 ? b.mensualite : 0;
+
+                cashflowImmoNetMois += revenuFoncierNetMensuel - impotFoncierMensuel - mensualitePret;
+
+                const valeurBien = (b.prixAchat || 0) * Math.pow(1 + (b.appreciationAnnuelle || 0) / 100, moisDepuisAchat / 12);
+                const capitalRestant = b.montantEmprunte > 0 ? loanRemainingByMonths(b.montantEmprunte, b.tauxPret || 0, b.dureePret, moisDepuisAchat) : 0;
+                valeurImmoNetteMois += (valeurBien - capitalRestant);
+            });
+
+            if (config.reinvestirCashflow && cashflowImmoNetMois > 0) {
+                capitalActions += cashflowImmoNetMois * allocActions;
+                capitalObligations += cashflowImmoNetMois * (1 - allocActions);
+                apportsActionsAnnee += cashflowImmoNetMois * allocActions;
+                apportsObligationsAnnee += cashflowImmoNetMois * (1 - allocActions);
+            } else {
+                cash += cashflowImmoNetMois;
+            }
+
+            if (moisDansAnnee === 11) {
+                const gainActions = capitalActions - actionsDebutAnnee - apportsActionsAnnee;
+                const gainObligations = capitalObligations - obligationsDebutAnnee - apportsObligationsAnnee;
+                if (gainActions > 0) capitalActions -= gainActions * ((config.actions && config.actions.tauxImposition) || 0) / 100;
+                if (gainObligations > 0) capitalObligations -= gainObligations * ((config.obligations && config.obligations.tauxImposition) || 0) / 100;
+
+                actionsDebutAnnee = capitalActions;
+                obligationsDebutAnnee = capitalObligations;
+                apportsActionsAnnee = 0;
+                apportsObligationsAnnee = 0;
+
+                years.push(year + 1);
+                seriesCash.push(cash);
+                seriesActions.push(capitalActions);
+                seriesObligations.push(capitalObligations);
+                seriesImmobilier.push(valeurImmoNetteMois);
+                seriesTotal.push(cash + capitalActions + capitalObligations + valeurImmoNetteMois);
+            }
+        }
+
+        return { years, cash: seriesCash, actions: seriesActions, obligations: seriesObligations, immobilier: seriesImmobilier, total: seriesTotal };
+    }
+
+    function renderProjectionBlock(block) {
+        const canvas = document.getElementById(`custom-chart-${block.id}`);
+        if (!canvas || !block.projection) return;
+        if (customChartInstances[block.id]) { customChartInstances[block.id].destroy(); delete customChartInstances[block.id]; }
+
+        const series = computeProjectionSeries(block.projection);
+        if (series.years.length === 0) return;
+
+        customChartInstances[block.id] = new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels: series.years.map(y => `An ${y}`),
+                datasets: [
+                    { label: 'Cash', data: series.cash, borderColor: '#00d9ff', backgroundColor: 'rgba(0,217,255,0.3)', fill: true, stack: 'proj', tension: 0.3, pointRadius: 0 },
+                    { label: 'Actions', data: series.actions, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.3)', fill: true, stack: 'proj', tension: 0.3, pointRadius: 0 },
+                    { label: 'Obligations', data: series.obligations, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.3)', fill: true, stack: 'proj', tension: 0.3, pointRadius: 0 },
+                    { label: 'Immobilier (net)', data: series.immobilier, borderColor: '#a855f7', backgroundColor: 'rgba(168,85,247,0.3)', fill: true, stack: 'proj', tension: 0.3, pointRadius: 0 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    y: { stacked: true, grid: { color: chartGridColor() }, ticks: { color: chartTextColor(), callback: v => fmtAxis(v) } },
+                    x: { grid: { display: false }, ticks: { color: chartTextColor() } }
+                },
+                plugins: { legend: { labels: { color: chartTextColor() } } }
+            }
+        });
+
+        setChartEvoBadge('custom-' + block.id, series.total[0], series.total[series.total.length - 1]);
+    }
+
 
     function openAddBlockModal() {
         editingBlockId = null;
@@ -7805,6 +8153,23 @@ window.closeHelp = function() {
         });
         document.getElementById('scratch-cat-select').style.display = 'none';
         document.getElementById('scratch-cat-hint').style.display = 'none';
+        // Reset projection à ses valeurs par défaut
+        projectionBiensDraft = [];
+        document.getElementById('proj-reinvestir').checked = false;
+        document.getElementById('proj-horizon').value = 20;
+        document.getElementById('proj-patrimoine-depart').value = 0;
+        document.getElementById('proj-salaire-mensuel').value = 2500;
+        document.getElementById('proj-salaire-progression').value = 2;
+        document.getElementById('proj-invest-mensuel').value = 500;
+        document.getElementById('proj-alloc-actions').value = 60;
+        document.getElementById('proj-immo-taux-imposition').value = 25;
+        document.getElementById('proj-oblig-capital').value = 0;
+        document.getElementById('proj-oblig-rendement').value = 3;
+        document.getElementById('proj-oblig-taux-imposition').value = 30;
+        document.getElementById('proj-actions-capital').value = 0;
+        document.getElementById('proj-actions-rendement').value = 6;
+        document.getElementById('proj-actions-taux-imposition').value = 30;
+        renderProjectionBiensList();
         document.getElementById('add-block-modal').style.display = 'flex';
         switchModalMode('visual');
         toggleCustomDates();
@@ -7828,7 +8193,26 @@ window.closeHelp = function() {
         populateBlockDescChips(block.descs || []);
         document.getElementById('add-block-modal').style.display = 'flex';
 
-        if (block.scratch) {
+        if (block.projection) {
+            const p = block.projection;
+            document.getElementById('proj-horizon').value = p.horizon ?? 20;
+            document.getElementById('proj-patrimoine-depart').value = p.patrimoineDepart ?? 0;
+            document.getElementById('proj-reinvestir').checked = !!p.reinvestirCashflow;
+            document.getElementById('proj-salaire-mensuel').value = p.salaire?.montantMensuel ?? 2500;
+            document.getElementById('proj-salaire-progression').value = p.salaire?.progressionAnnuelle ?? 2;
+            document.getElementById('proj-invest-mensuel').value = p.salaire?.investissementMensuel ?? 500;
+            document.getElementById('proj-alloc-actions').value = p.salaire?.allocationActions ?? 60;
+            document.getElementById('proj-immo-taux-imposition').value = p.tauxImpositionImmobilier ?? 25;
+            document.getElementById('proj-oblig-capital').value = p.obligations?.capitalInitial ?? 0;
+            document.getElementById('proj-oblig-rendement').value = p.obligations?.rendementAnnuel ?? 3;
+            document.getElementById('proj-oblig-taux-imposition').value = p.obligations?.tauxImposition ?? 30;
+            document.getElementById('proj-actions-capital').value = p.actions?.capitalInitial ?? 0;
+            document.getElementById('proj-actions-rendement').value = p.actions?.rendementAnnuel ?? 6;
+            document.getElementById('proj-actions-taux-imposition').value = p.actions?.tauxImposition ?? 30;
+            projectionBiensDraft = (p.biens || []).map(b => ({ ...b, id: projectionBienNextId++ }));
+            renderProjectionBiensList();
+            switchModalMode('projection');
+        } else if (block.scratch) {
             Object.assign(scratchState, block.scratch);
             // Compatibilité : migrer source → sources si nécessaire
             if (!scratchState.sources) scratchState.sources = [scratchState.source || 'all'];
@@ -7923,6 +8307,31 @@ window.closeHelp = function() {
             // Sauvegarder avec sources (tableau) au lieu de source (string)
             const scratchToSave = { ...scratchState };
             blockData = { title, metric: 'scratch', scratch: scratchToSave, type: scratchState.display, period, size, dateFrom, dateTo, descs };
+        } else if (currentModalMode === 'projection') {
+            const projection = {
+                horizon: parseInt(document.getElementById('proj-horizon').value) || 20,
+                patrimoineDepart: parseFloat(document.getElementById('proj-patrimoine-depart').value) || 0,
+                reinvestirCashflow: document.getElementById('proj-reinvestir').checked,
+                salaire: {
+                    montantMensuel: parseFloat(document.getElementById('proj-salaire-mensuel').value) || 0,
+                    progressionAnnuelle: parseFloat(document.getElementById('proj-salaire-progression').value) || 0,
+                    investissementMensuel: parseFloat(document.getElementById('proj-invest-mensuel').value) || 0,
+                    allocationActions: parseFloat(document.getElementById('proj-alloc-actions').value) || 0
+                },
+                biens: projectionBiensDraft.map(b => ({ ...b })),
+                tauxImpositionImmobilier: parseFloat(document.getElementById('proj-immo-taux-imposition').value) || 0,
+                obligations: {
+                    capitalInitial: parseFloat(document.getElementById('proj-oblig-capital').value) || 0,
+                    rendementAnnuel: parseFloat(document.getElementById('proj-oblig-rendement').value) || 0,
+                    tauxImposition: parseFloat(document.getElementById('proj-oblig-taux-imposition').value) || 0
+                },
+                actions: {
+                    capitalInitial: parseFloat(document.getElementById('proj-actions-capital').value) || 0,
+                    rendementAnnuel: parseFloat(document.getElementById('proj-actions-rendement').value) || 0,
+                    tauxImposition: parseFloat(document.getElementById('proj-actions-taux-imposition').value) || 0
+                }
+            };
+            blockData = { title, metric: 'projection', type: 'projection', projection, period: 'all', size, dateFrom: '', dateTo: '', descs: [] };
         } else {
             const type   = document.getElementById('block-type').value;
             const metric = document.getElementById('block-metric').value;
@@ -8013,9 +8422,14 @@ window.closeHelp = function() {
 
     function buildBlockHTML(block) {
         const isScratch = block.metric === 'scratch';
+        const isProjection = block.metric === 'projection';
         const periodBadge = PERIOD_LABELS[block.period] || block.period;
         const scratchBadge = isScratch
             ? `<span class="custom-block-badge" style="border-color:rgba(168,85,247,0.4);color:#a855f7;">🎨 Visuel</span>`
+            : '';
+        const projectionBadge = isProjection
+            ? `<span class="custom-block-badge" style="border-color:rgba(16,185,129,0.4);color:#10b981;">🏰 ${block.projection?.horizon || '?'} ans</span>
+               <span class="chart-evo-badge" id="evo-badge-custom-${block.id}" style="display:none;" onclick="toggleChartEvoMode('custom-${block.id}')" title="Cliquer pour voir en €/pourcentage"></span>`
             : '';
         const catBadge = (block.descs && block.descs.length > 0)
             ? `<span class="custom-block-badge" style="border-color:rgba(99,102,241,0.4);color:#818cf8;" title="${block.descs.join(', ')}">📝 ${block.descs.length} desc.</span>`
@@ -8025,8 +8439,9 @@ window.closeHelp = function() {
             <h3>${block.title}</h3>
             <div style="display:flex; gap:6px; align-items:center; flex-shrink:0; flex-wrap:wrap; justify-content:flex-end;">
                 ${scratchBadge}
+                ${projectionBadge}
                 ${catBadge}
-                <span class="custom-block-badge">${periodBadge}</span>
+                ${isProjection ? '' : `<span class="custom-block-badge">${periodBadge}</span>`}
                 <button class="action-btn action-btn-edit" onclick="editCustomBlock(${block.id})" title="Modifier">✏️</button>
                 <button class="action-btn action-btn-delete" onclick="removeCustomBlock(${block.id})" title="Supprimer">🗑</button>
             </div>
@@ -8155,6 +8570,7 @@ window.closeHelp = function() {
     // RENDER CONTENT
     function renderBlockContent(block) {
         if (block.metric === 'scratch') { renderScratchBlock(block); return; }
+        if (block.metric === 'projection') { renderProjectionBlock(block); return; }
         if (block.type === 'table_cat') { renderBlockTable(block); return; }
 
         const canvas = document.getElementById(`custom-chart-${block.id}`);
