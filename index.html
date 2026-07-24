@@ -16,8 +16,6 @@
     <link rel="manifest" href="data:application/manifest+json;base64,ewogICJuYW1lIjogIkZpbmFuY2UgUHJvIiwKICAic2hvcnRfbmFtZSI6ICJGaW5hbmNlIFBybyIsCiAgImRlc2NyaXB0aW9uIjogIkRhc2hib2FyZCBmaW5hbmNpZXIgcGVyc29ubmVsIiwKICAic3RhcnRfdXJsIjogIi4vaW5kZXguaHRtbCIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgIm9yaWVudGF0aW9uIjogInBvcnRyYWl0IiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjMGEwZTI3IiwKICAidGhlbWVfY29sb3IiOiAiIzBhMGUyNyIsCiAgImljb25zIjogWwogICAgewogICAgICAic3JjIjogImljb24tMTkyLnBuZyIsCiAgICAgICJzaXplcyI6ICIxOTJ4MTkyIiwKICAgICAgInR5cGUiOiAiaW1hZ2UvcG5nIiwKICAgICAgInB1cnBvc2UiOiAiYW55IG1hc2thYmxlIgogICAgfSwKICAgIHsKICAgICAgInNyYyI6ICJpY29uLTUxMi5wbmciLAogICAgICAic2l6ZXMiOiAiNTEyeDUxMiIsCiAgICAgICJ0eXBlIjogImltYWdlL3BuZyIsCiAgICAgICJwdXJwb3NlIjogImFueSBtYXNrYWJsZSIKICAgIH0KICBdCn0=">
     <title>Dashboard Financier Personnel</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.1/dist/chartjs-plugin-zoom.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -330,7 +328,18 @@
             letter-spacing: 0.08em;
             margin-bottom: 14px;
             padding: 0 2px;
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
         }
+        .chart-evo-badge {
+            display: inline-flex; align-items: center; gap: 3px;
+            padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 700;
+            letter-spacing: normal; text-transform: none; cursor: pointer;
+            transition: filter 0.15s; user-select: none; flex-shrink: 0;
+        }
+        .chart-evo-badge.evo-up   { background: rgba(16,185,129,0.14); color: #10b981; }
+        .chart-evo-badge.evo-down { background: rgba(239,68,68,0.14); color: #ef4444; }
+        .chart-evo-badge.evo-flat { background: rgba(148,163,184,0.14); color: var(--text-secondary); }
+        .chart-evo-badge:hover { filter: brightness(1.2); }
         .chart-full .chart-container {
             margin-top: 0;
             height: 380px;
@@ -1682,7 +1691,7 @@
             font-size: 1rem;
             padding: 2px 0;
         }
-        .scratch-block-cat-wrap { display: flex; align-items: center; gap: 4px; }
+        .scratch-block-cat-wrap { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; flex-basis: 100%; }
 
         /* ── Body scroll lock quand un modal est ouvert ── */
         body.modal-open {
@@ -2978,7 +2987,7 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                             <button class="scratch-block" data-step="source" data-value="savings" onclick="selectScratchBlock(this)" style="--bc:#a855f7;">Épargne nette</button>
                             <div class="scratch-block-cat-wrap">
                                 <button class="scratch-block" data-step="source" data-value="category" onclick="selectScratchBlock(this)" style="--bc:#f59e0b;">Catégorie…</button>
-                                <select id="scratch-cat-select" onchange="updateScratchCatBlock()" style="display:none; margin-left:6px; padding:5px 8px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.4); color:var(--text-primary); border-radius:8px; font-size:0.8rem; cursor:pointer;">
+                                <select id="scratch-cat-select" onchange="updateScratchCatBlock()" multiple size="5" style="display:none; padding:5px 8px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.4); color:var(--text-primary); border-radius:8px; font-size:0.8rem; cursor:pointer; min-width:160px; margin-bottom:0;">
                                     <option value="Achat">Achat</option>
                                     <option value="Autres">Autres</option>
                                     <option value="Entrée">Entrée</option>
@@ -2988,6 +2997,7 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                                     <option value="Sortie">Sortie</option>
                                     <option value="Voiture">Voiture</option>
                                 </select>
+                                <span id="scratch-cat-hint" style="display:none; font-size:0.72rem; color:var(--text-secondary);">Touchez pour (dé)sélectionner plusieurs catégories</span>
                             </div>
                         </div>
                     </div>
@@ -3289,7 +3299,7 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
             </div>
 
             <div class="chart-full">
-                <h3>Évolution cumulée</h3>
+                <h3>Évolution cumulée <span class="chart-evo-badge" id="evo-badge-chartProjetCumul" style="display:none;" onclick="toggleChartEvoMode('chartProjetCumul')" title="Cliquer pour voir en €/pourcentage"></span></h3>
                 <div class="chart-container chart-container-tall">
                     <canvas id="chart-projet-cumul"></canvas>
                 </div>
@@ -3335,7 +3345,7 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
         </div>
 
         <div class="chart-full">
-            <h3>Épargne cumulée</h3>
+            <h3>Épargne cumulée <span class="chart-evo-badge" id="evo-badge-chartPeriodeCumul" style="display:none;" onclick="toggleChartEvoMode('chartPeriodeCumul')" title="Cliquer pour voir en €/pourcentage"></span></h3>
             <div class="chart-container chart-container-tall">
                 <canvas id="chart-periode-cumul"></canvas>
             </div>
@@ -3401,7 +3411,7 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
 
         <!-- Graphique 3 courbes -->
         <div class="chart-full">
-            <h3>Évolution dans le temps</h3>
+            <h3>Évolution dans le temps <span class="chart-evo-badge" id="evo-badge-chartPatrimoineEvolution" style="display:none;" onclick="toggleChartEvoMode('chartPatrimoineEvolution')" title="Cliquer pour voir en €/pourcentage"></span></h3>
             <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:0.78rem;" class="pat-chart-legend">
                 <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:3px;background:#00d9ff;display:inline-block;border-radius:2px;"></span>Argent réel (comptes)</span>
                 <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:3px;background:#10b981;display:inline-block;border-radius:2px;"></span>Argent perso (net)</span>
@@ -5422,7 +5432,7 @@ window.closeHelp = function() {
 
         // Changes vs previous month
         updateChangeIndicator('mois-revenus-change', stats.revenus, prevStats.revenus);
-        updateChangeIndicator('mois-depenses-change', stats.depenses, prevStats.depenses);
+        updateChangeIndicator('mois-depenses-change', stats.depenses, prevStats.depenses, true);
         updateChangeIndicator('mois-epargne-change', stats.epargne, prevStats.epargne);
         updateChangeIndicator('mois-solde-change', stats.solde, prevStats.solde);
 
@@ -5433,7 +5443,7 @@ window.closeHelp = function() {
         document.getElementById('comp-taux').textContent = `${(prevStats.revenus > 0 ? (prevStats.solde / prevStats.revenus * 100) : 0).toFixed(1)}%`;
 
         updateChangeIndicator('comp-revenus-change', stats.revenus, prevStats.revenus, true);
-        updateChangeIndicator('comp-depenses-change', -stats.depenses, -prevStats.depenses, true);
+        updateChangeIndicator('comp-depenses-change', stats.depenses, prevStats.depenses, true);
         updateChangeIndicator('comp-epargne-change', stats.solde, prevStats.solde, true);
 
         // Recent transactions
@@ -5562,8 +5572,7 @@ window.closeHelp = function() {
                         x: { grid: { display: false }, ticks: { color: chartTextColor() } }
                     },
                     plugins: {
-                        legend: { labels: { color: chartTextColor() } },
-                        zoom: zoomOptions('chartPeriodeCumul')
+                        legend: { labels: { color: chartTextColor() } }
                     },
                     onClick: (evt, elements) => {
                         if (!elements.length) return;
@@ -5574,6 +5583,10 @@ window.closeHelp = function() {
                     }
                 }
             });
+
+            if (cumulData.length > 0) {
+                setChartEvoBadge('chartPeriodeCumul', cumulData[0].value, cumulData[cumulData.length - 1].value);
+            }
 
             // Category evolution
             const firstMonth = sorted[0].date;
@@ -5623,8 +5636,7 @@ window.closeHelp = function() {
                         x: { grid: { display: false }, ticks: { color: chartTextColor() } }
                     },
                     plugins: {
-                        legend: { labels: { color: chartTextColor() } },
-                        zoom: zoomOptions('chartPeriodeHabits')
+                        legend: { labels: { color: chartTextColor() } }
                     },
                     onClick: (evt, elements) => {
                         if (!elements.length) return;
@@ -5794,161 +5806,6 @@ window.closeHelp = function() {
         renderPatrimoine();
     }
 
-    // ── Zoom helpers ──────────────────────────────────────────────
-    function zoomOptions(chartKey) {
-        return {
-            zoom: {
-                wheel: { enabled: true, speed: 0.08 },
-                pinch: { enabled: true },
-                mode: 'x',
-            },
-            pan: {
-                enabled: true,
-                mode: 'x',
-            },
-            limits: { x: { minRange: 2 } }
-        };
-    }
-
-    function showZoomReset(chartKey) {
-        const btn = document.getElementById('zoom-reset-' + chartKey);
-        if (btn) btn.style.opacity = '1';
-    }
-
-    // ===== ZOOM STYLE TRADING VIEW =====
-    // Drag sur l'axe X : droite = zoom in, gauche = zoom out
-    function setupAxisDragZoom(chart, key) {
-        if (!chart || !chart.canvas) return;
-        const canvas = chart.canvas;
-
-        let active = false;
-        let startClientX = 0;
-        let snapMinIdx = 0;
-        let snapMaxIdx = 0;
-        let snapAnchorRatio = 0.5; // position relative du clic sur l'axe (0=gauche, 1=droite)
-
-        function getLabels() { return chart.data?.labels || []; }
-
-        function getCurrentIdxRange() {
-            const scale = chart.scales?.x;
-            if (!scale) return null;
-            const labels = getLabels();
-            if (!labels.length) return null;
-            // scale.min / scale.max sont des indices numériques pour les category scales
-            const minI = Math.max(0, Math.round(typeof scale.min === 'number' ? scale.min : 0));
-            const maxI = Math.min(labels.length - 1, Math.round(typeof scale.max === 'number' ? scale.max : labels.length - 1));
-            return { minI, maxI };
-        }
-
-        function isInXAxisZone(pos) {
-            const ca = chart.chartArea;
-            if (!ca) return false;
-            // Zone : sous le chartArea, sur toute la largeur des données
-            return pos.y > ca.bottom - 4 && pos.y < canvas.clientHeight && pos.x >= ca.left && pos.x <= ca.right;
-        }
-
-        function getCanvasPos(e) {
-            const rect = canvas.getBoundingClientRect();
-            const src = e.touches ? e.touches[0] : e;
-            return { x: src.clientX - rect.left, y: src.clientY - rect.top };
-        }
-
-        function onPointerDown(e) {
-            const pos = getCanvasPos(e);
-            if (!isInXAxisZone(pos)) return;
-
-            active = true;
-            startClientX = (e.touches ? e.touches[0] : e).clientX;
-
-            const range = getCurrentIdxRange();
-            if (range) {
-                snapMinIdx = range.minI;
-                snapMaxIdx = range.maxI;
-                // Ancre : position du clic dans la plage visible
-                const ca = chart.chartArea;
-                snapAnchorRatio = Math.max(0, Math.min(1, (pos.x - ca.left) / (ca.right - ca.left)));
-            }
-            e.preventDefault();
-            e.stopPropagation();
-        }
-
-        function onPointerMove(e) {
-            if (!active) return;
-            const src = e.touches ? e.touches[0] : e;
-            const dx = src.clientX - startClientX;
-
-            const labels = getLabels();
-            if (!labels.length) return;
-
-            // Droite = zoom in = réduire la plage, Gauche = zoom out = élargir
-            // sensitivity : ~1% de zoom par 3px de déplacement
-            const sensitivity = 0.006;
-            const factor = Math.pow(1 - sensitivity, dx);
-
-            const currentRange = snapMaxIdx - snapMinIdx;
-            let newRange = Math.max(0, Math.min(labels.length - 1, Math.round(currentRange * factor)));
-
-            // Point d'ancrage : on zoome autour de là où l'utilisateur a cliqué
-            const anchor = snapMinIdx + Math.round(snapAnchorRatio * currentRange);
-            let newMin = Math.round(anchor - snapAnchorRatio * newRange);
-            let newMax = newMin + newRange;
-
-            // Clampage aux bornes
-            if (newMin < 0) { newMin = 0; newMax = Math.min(labels.length - 1, newRange); }
-            if (newMax >= labels.length) { newMax = labels.length - 1; newMin = Math.max(0, newMax - newRange); }
-
-            chart.scales.x.options.min = labels[newMin];
-            chart.scales.x.options.max = labels[newMax];
-            chart.update('none');
-
-            if (key) showZoomReset(key);
-            e.preventDefault();
-        }
-
-        function onPointerUp() { active = false; }
-
-        // Curseur ew-resize au survol de la zone axe
-        function onMouseHover(e) {
-            if (active) return;
-            const pos = getCanvasPos(e);
-            canvas.style.cursor = isInXAxisZone(pos) ? 'ew-resize' : '';
-        }
-
-        canvas.addEventListener('mousedown',  onPointerDown);
-        canvas.addEventListener('mousemove',  onMouseHover);
-        document.addEventListener('mousemove', onPointerMove);
-        document.addEventListener('mouseup',   onPointerUp);
-        canvas.addEventListener('touchstart', onPointerDown, { passive: false });
-        document.addEventListener('touchmove', onPointerMove, { passive: false });
-        document.addEventListener('touchend',  onPointerUp);
-
-        // Nettoyage stocké sur l'instance
-        chart._axisDragCleanup = () => {
-            canvas.removeEventListener('mousedown',  onPointerDown);
-            canvas.removeEventListener('mousemove',  onMouseHover);
-            document.removeEventListener('mousemove', onPointerMove);
-            document.removeEventListener('mouseup',   onPointerUp);
-            canvas.removeEventListener('touchstart', onPointerDown);
-            document.removeEventListener('touchmove', onPointerMove);
-            document.removeEventListener('touchend',  onPointerUp);
-        };
-    }
-
-    function resetChartZoom(chartKey) {
-        const chart = chartInstances[chartKey] || customChartInstances?.[chartKey];
-        if (chart) {
-            // Reset TradingView zoom (scale options)
-            if (chart.scales?.x?.options) {
-                chart.scales.x.options.min = undefined;
-                chart.scales.x.options.max = undefined;
-                chart.update('active');
-            } else if (chart.resetZoom) {
-                chart.resetZoom();
-            }
-            const btn = document.getElementById('zoom-reset-' + chartKey);
-            if (btn) btn.style.opacity = '0.35';
-        }
-    }
 
     function updatePretDepense(id, val) {
         const p = prets.find(p => p.id === id);
@@ -6336,11 +6193,15 @@ window.closeHelp = function() {
                     },
                     plugins: {
                         legend: { labels: { color: chartTextColor(), boxWidth: 14 } },
-                        tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ' : ' + fmtTooltip(ctx.parsed.y) } },
-                        zoom: zoomOptions('chartPatrimoineEvolution')
+                        tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ' : ' + fmtTooltip(ctx.parsed.y) } }
                     }
                 }
             });
+
+            const evoSeries = hasLoans ? dataPerso : dataReel;
+            if (evoSeries.length > 0) {
+                setChartEvoBadge('chartPatrimoineEvolution', evoSeries[0], evoSeries[evoSeries.length - 1]);
+            }
         }
         renderPrets();
 
@@ -6406,7 +6267,7 @@ window.closeHelp = function() {
     }
 
     function updateChangeIndicator(elementId, current, previous, reverse = false) {
-        const diff = reverse ? current - previous : current - previous;
+        const diff = current - previous;
         const percent = previous !== 0 ? (diff / Math.abs(previous) * 100) : 0;
         const el = document.getElementById(elementId);
         if (el) {
@@ -6415,10 +6276,44 @@ window.closeHelp = function() {
         }
     }
 
+    // ===== BADGE D'ÉVOLUTION SUR LES GRAPHIQUES (% ↔ €, cliquable) =====
+    const chartEvoState = {};
+
+    function setChartEvoBadge(key, firstVal, lastVal) {
+        const badge = document.getElementById('evo-badge-' + key);
+        if (!badge) return;
+        if (firstVal === undefined || lastVal === undefined || isNaN(firstVal) || isNaN(lastVal)) {
+            badge.style.display = 'none';
+            return;
+        }
+        const diff = lastVal - firstVal;
+        const pct = firstVal !== 0 ? (diff / Math.abs(firstVal)) * 100 : (lastVal !== 0 ? (diff > 0 ? 100 : -100) : 0);
+        const mode = (chartEvoState[key] && chartEvoState[key].mode) || '%';
+        chartEvoState[key] = { diff, pct, mode };
+        badge.style.display = 'inline-flex';
+        renderChartEvoBadge(key);
+    }
+
+    function renderChartEvoBadge(key) {
+        const badge = document.getElementById('evo-badge-' + key);
+        const state = chartEvoState[key];
+        if (!badge || !state) return;
+        const { diff, pct, mode } = state;
+        const arrow = diff > 0 ? '↑' : diff < 0 ? '↓' : '→';
+        badge.textContent = mode === '%' ? `${arrow} ${Math.abs(pct).toFixed(1)} %` : `${arrow} ${formatMoney(Math.abs(diff))}`;
+        badge.className = 'chart-evo-badge ' + (diff > 0 ? 'evo-up' : diff < 0 ? 'evo-down' : 'evo-flat');
+    }
+
+    function toggleChartEvoMode(key) {
+        const state = chartEvoState[key];
+        if (!state) return;
+        state.mode = state.mode === '%' ? '€' : '%';
+        renderChartEvoBadge(key);
+    }
+
     function destroyChart(id) {
         if (chartInstances[id]) {
             const inst = chartInstances[id];
-            if (inst._axisDragCleanup) inst._axisDragCleanup();
             if (typeof inst.destroy === 'function') inst.destroy();
             delete chartInstances[id];
         }
@@ -7702,7 +7597,7 @@ window.closeHelp = function() {
     }
 
     // Scratch pipeline state — sources est un tableau pour la multi-sélection
-    const scratchState = { sources: ['all'], group: 'month', calc: 'sum', display: 'bar', category: 'Nourriture' };
+    const scratchState = { sources: ['all'], group: 'month', calc: 'sum', display: 'bar', categories: [] };
 
     const CHART_COLORS = [
         '#00d9ff','#a855f7','#10b981','#ef4444','#f59e0b',
@@ -7760,9 +7655,10 @@ window.closeHelp = function() {
                     scratchState.sources = active;
                 }
             }
-            // Afficher/masquer le select de catégorie
-            document.getElementById('scratch-cat-select').style.display =
-                scratchState.sources.includes('category') ? '' : 'none';
+            // Afficher/masquer le select de catégorie (multi-sélection)
+            const showCat = scratchState.sources.includes('category');
+            document.getElementById('scratch-cat-select').style.display = showCat ? '' : 'none';
+            document.getElementById('scratch-cat-hint').style.display = showCat ? '' : 'none';
         } else {
             // ── SÉLECTION UNIQUE pour group / calc / display ──
             btn.closest('.scratch-blocks-row').querySelectorAll('.scratch-block').forEach(b => b.classList.remove('active-scratch'));
@@ -7778,18 +7674,21 @@ window.closeHelp = function() {
     }
 
     function updateScratchCatBlock() {
-        scratchState.category = document.getElementById('scratch-cat-select').value;
+        const sel = document.getElementById('scratch-cat-select');
+        scratchState.categories = [...sel.selectedOptions].map(o => o.value);
         updateScratchSummary();
     }
 
-    function getScratchSourceLabel(sources, category) {
+    function getScratchSourceLabel(sources, categories) {
         if (!sources || sources.includes('all') || sources.length === 0) return 'toutes les transactions';
-        return sources.map(s => s === 'category' ? `"${category}"` : (SOURCE_LABELS[s] || s)).join(' + ');
+        const cats = Array.isArray(categories) ? categories : (categories ? [categories] : []);
+        const catLabel = cats.length > 0 ? cats.join(', ') : 'Catégorie';
+        return sources.map(s => s === 'category' ? `"${catLabel}"` : (SOURCE_LABELS[s] || s)).join(' + ');
     }
 
     function updateScratchSummary() {
         const s = scratchState;
-        const srcLabel = getScratchSourceLabel(s.sources, s.category);
+        const srcLabel = getScratchSourceLabel(s.sources, s.categories);
         const text = `Prendre <strong style="color:var(--text-primary)">${srcLabel}</strong>, grouper <strong style="color:var(--text-primary)">${GROUP_LABELS[s.group]}</strong>, calculer <strong style="color:var(--text-primary)">${CALC_LABELS[s.calc]}</strong> → afficher en <strong style="color:var(--text-primary)">${DISPLAY_LABELS[s.display]}</strong>`;
         document.getElementById('scratch-summary-text').innerHTML = text;
     }
@@ -7801,7 +7700,10 @@ window.closeHelp = function() {
     }
 
     function runScratchBlock(block, filteredTx) {
-        const { sources, source, group, calc, category, display } = block.scratch;
+        const { sources, source, group, calc, display } = block.scratch;
+        const categories = Array.isArray(block.scratch.categories)
+            ? block.scratch.categories
+            : (block.scratch.category ? [block.scratch.category] : []);
         // Compatibilité anciens blocs (source string) et nouveaux (sources array)
         const srcs = Array.isArray(sources) ? sources : [source || 'all'];
         let tx = filteredTx;
@@ -7812,7 +7714,7 @@ window.closeHelp = function() {
                 if (src === 'expenses')  return !(t.categorie === 'Entrée' || t.montant > 0);
                 if (src === 'revenues')  return t.categorie === 'Entrée' || t.montant > 0;
                 if (src === 'savings')   return t.categorie === 'Epargne';
-                if (src === 'category')  return t.categorie === category;
+                if (src === 'category')  return categories.includes(t.categorie);
                 return true;
             }));
         }
@@ -7893,7 +7795,7 @@ window.closeHelp = function() {
         document.getElementById('block-desc-search').value = '';
         populateBlockDescChips([]);
         // Reset scratch to defaults
-        Object.assign(scratchState, { sources: ['all'], group: 'month', calc: 'sum', display: 'bar', category: 'Nourriture' });
+        Object.assign(scratchState, { sources: ['all'], group: 'month', calc: 'sum', display: 'bar', categories: [] });
         document.querySelectorAll('.scratch-block').forEach(b => {
             if (b.dataset.step === 'source') {
                 b.classList.toggle('active-scratch', b.dataset.value === 'all');
@@ -7902,6 +7804,7 @@ window.closeHelp = function() {
             }
         });
         document.getElementById('scratch-cat-select').style.display = 'none';
+        document.getElementById('scratch-cat-hint').style.display = 'none';
         document.getElementById('add-block-modal').style.display = 'flex';
         switchModalMode('visual');
         toggleCustomDates();
@@ -7939,9 +7842,15 @@ window.closeHelp = function() {
                     b.classList.toggle('active-scratch', b.dataset.value === scratchState[step]);
                 });
             });
+            // Compatibilité : migrer category (ancien, singulier) → categories (array)
+            if (!Array.isArray(scratchState.categories)) {
+                scratchState.categories = scratchState.category ? [scratchState.category] : [];
+            }
             const catSel = document.getElementById('scratch-cat-select');
-            catSel.style.display = scratchState.sources.includes('category') ? '' : 'none';
-            catSel.value = block.scratch.category || 'Nourriture';
+            const showCat = scratchState.sources.includes('category');
+            catSel.style.display = showCat ? '' : 'none';
+            document.getElementById('scratch-cat-hint').style.display = showCat ? '' : 'none';
+            [...catSel.options].forEach(o => { o.selected = scratchState.categories.includes(o.value); });
             switchModalMode('visual');
         } else {
             switchModalMode('standard');
@@ -8135,7 +8044,8 @@ window.closeHelp = function() {
                         : formatMoney(val);
                     const srcs = Array.isArray(block.scratch.sources) ? block.scratch.sources : [block.scratch.source || 'all'];
                     const color = srcs.includes('revenues') ? '#10b981' : srcs.includes('expenses') ? '#ef4444' : srcs.includes('savings') ? '#a855f7' : '#00d9ff';
-                    const srcLabel = getScratchSourceLabel(srcs, block.scratch.category);
+                    const kpiCategories = Array.isArray(block.scratch.categories) ? block.scratch.categories : (block.scratch.category ? [block.scratch.category] : []);
+                    const srcLabel = getScratchSourceLabel(srcs, kpiCategories);
                     return header + `<div class="kpi-value-block detail-clickable" onclick="openBlockDetail(${block.id})" title="Cliquer pour voir le détail"><div class="kpi-label">${srcLabel}</div><div class="kpi-number" style="color:${color};">${disp}</div><div class="kpi-sub">sur ${ftx.length} transaction${ftx.length!==1?'s':''} · <span style="color:var(--accent-blue);">voir détail</span></div></div>`;
                 }
             } catch(e) {}
@@ -8331,12 +8241,15 @@ window.closeHelp = function() {
             };
 
             // Noms lisibles par source
+            const scratchCategories = Array.isArray(block.scratch.categories)
+                ? block.scratch.categories
+                : (block.scratch.category ? [block.scratch.category] : []);
             const SOURCE_NAMES = {
                 all:      'Toutes',
                 revenues: 'Revenus',
                 expenses: 'Dépenses',
                 savings:  'Épargne',
-                category: block.scratch.category || 'Catégorie',
+                category: scratchCategories.length > 0 ? scratchCategories.join(', ') : 'Catégorie',
             };
 
             // ── Cas multi-sources (plusieurs courbes/barres séparées) ──
@@ -8571,7 +8484,10 @@ window.closeHelp = function() {
         let filteredTx, title, displayType = 'general';
 
         if (block.metric === 'scratch') {
-            const { sources, source, category } = block.scratch;
+            const { sources, source } = block.scratch;
+            const categories = Array.isArray(block.scratch.categories)
+                ? block.scratch.categories
+                : (block.scratch.category ? [block.scratch.category] : []);
             const srcs = Array.isArray(sources) ? sources : [source || 'all'];
             if (srcs.includes('all') || srcs.length === 0) {
                 filteredTx = tx;
@@ -8580,12 +8496,12 @@ window.closeHelp = function() {
                     if (src === 'expenses')  return !(t.categorie === 'Entrée' || t.montant > 0);
                     if (src === 'revenues')  return t.categorie === 'Entrée' || t.montant > 0;
                     if (src === 'savings')   return t.categorie === 'Epargne';
-                    if (src === 'category')  return t.categorie === category;
+                    if (src === 'category')  return categories.includes(t.categorie);
                     return true;
                 }));
             }
             displayType = srcs.includes('savings') ? 'savings' : srcs.includes('revenues') ? 'revenues' : 'general';
-            title = getScratchSourceLabel(srcs, category);
+            title = getScratchSourceLabel(srcs, categories);
         } else {
             if (block.metric === 'revenues') { filteredTx = tx.filter(isRev); displayType = 'revenues'; title = 'Revenus'; }
             else if (block.metric === 'expenses') { filteredTx = tx.filter(t => isExp(t) && t.categorie !== 'Epargne'); title = 'Dépenses'; }
@@ -8633,7 +8549,10 @@ window.closeHelp = function() {
         const tx = getBlockTransactions(block);
 
         // Apply source filter (same as runScratchBlock step 1)
-        const { sources, source, category } = block.scratch;
+        const { sources, source } = block.scratch;
+        const categories = Array.isArray(block.scratch.categories)
+            ? block.scratch.categories
+            : (block.scratch.category ? [block.scratch.category] : []);
         const srcs = Array.isArray(sources) ? sources : [source || 'all'];
         let sourceTx = [...tx];
         if (!srcs.includes('all') && srcs.length > 0) {
@@ -8641,7 +8560,7 @@ window.closeHelp = function() {
                 if (src === 'expenses')  return !(t.categorie === 'Entrée' || t.montant > 0);
                 if (src === 'revenues')  return t.categorie === 'Entrée' || t.montant > 0;
                 if (src === 'savings')   return t.categorie === 'Epargne';
-                if (src === 'category')  return t.categorie === category;
+                if (src === 'category')  return categories.includes(t.categorie);
                 return true;
             }));
         }
@@ -9021,6 +8940,10 @@ window.closeHelp = function() {
                     plugins: { legend: { labels: { color: chartTextColor() } } }
                 }
             });
+            setChartEvoBadge('chartProjetCumul', cumulData[0].value, cumulData[cumulData.length - 1].value);
+        } else {
+            const b = document.getElementById('evo-badge-chartProjetCumul');
+            if (b) b.style.display = 'none';
         }
 
         document.getElementById('projet-detail-transactions').innerHTML = renderDayBlocks(txs);
@@ -9269,13 +9192,20 @@ window.closeHelp = function() {
         const opts = cats.map(c => `<option value="${c}">${c}</option>`).join('');
 
         // Filtre transactions (select normal)
-        ['select-cat-filter','scratch-cat-select'].forEach(id => {
-            const el = document.getElementById(id);
-            if (!el) return;
-            const cur = el.value;
-            el.innerHTML = id === 'select-cat-filter' ? `<option value="">Toutes catégories</option>${opts}` : opts;
-            if ([...el.options].some(o => o.value === cur)) el.value = cur;
-        });
+        const filterEl = document.getElementById('select-cat-filter');
+        if (filterEl) {
+            const cur = filterEl.value;
+            filterEl.innerHTML = `<option value="">Toutes catégories</option>${opts}`;
+            if ([...filterEl.options].some(o => o.value === cur)) filterEl.value = cur;
+        }
+
+        // Select multi-catégories du builder de bloc (visuel)
+        const scratchSel = document.getElementById('scratch-cat-select');
+        if (scratchSel) {
+            const curSelected = scratchState.categories || [];
+            scratchSel.innerHTML = opts;
+            [...scratchSel.options].forEach(o => { o.selected = curSelected.includes(o.value); });
+        }
 
         // Chips du formulaire d'ajout
         renderTxCatChips(cats);
