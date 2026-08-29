@@ -1254,6 +1254,8 @@
             body.pwa-mode .tab-content {
                 padding-left: 16px !important;
                 padding-right: 16px !important;
+                /* Décalage pour ne pas passer sous la barre de statut / l'encoche iOS */
+                padding-top: calc(18px + env(safe-area-inset-top, 0px)) !important;
             }
         }
         body.pwa-mode .tab-content {
