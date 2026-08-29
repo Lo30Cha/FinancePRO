@@ -418,10 +418,11 @@
             nav {
                 position: fixed !important;
                 bottom: 0; left: 0; right: 0;
-                height: 58px;
+                height: calc(58px + env(safe-area-inset-bottom, 0px));
                 width: 100%;
                 flex-direction: row;
                 padding: 0;
+                padding-bottom: env(safe-area-inset-bottom, 0px);
                 border-right: none;
                 border-top: 1px solid var(--border);
                 background: var(--bg-primary);
@@ -432,8 +433,8 @@
                 align-items: stretch;
             }
 
-            /* Compenser la hauteur de la nav fixe */
-            .tab-content { padding-bottom: 74px !important; }
+            /* Compenser la hauteur de la nav fixe (+ indicateur home iOS) */
+            .tab-content { padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px)) !important; }
 
             .nav-brand { display:none; }
             .nav-tabs, nav > div[style*="margin-top:auto"] { display:contents; }
@@ -477,7 +478,7 @@
 
         /* Bannière démo : au-dessus de la nav fixe sur mobile */
         @media (max-width: 768px) {
-            #demo-banner { bottom: 58px !important; }
+            #demo-banner { bottom: calc(58px + env(safe-area-inset-bottom, 0px)) !important; }
 
         /* Mobile: description colonne masquée dans la liste day-blocks (géré par overflow ellipsis) */
         }
