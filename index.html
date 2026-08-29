@@ -1732,6 +1732,7 @@
 
   // ── Flag anti-boucle ─────────────────────────────────────────
   window._cloudLoading = false;
+  window._lastSelfSave = null; // saved_at de notre dernière écriture, pour ignorer l'écho realtime
 
   // ── Toast cloud ──────────────────────────────────────────────
   window._showCloudToast = function(msg, isError) {
@@ -1763,6 +1764,7 @@
         saved_at:              new Date().toISOString()
       };
       console.log('saveToCloud: payload prêt, uid=', uid);
+      window._lastSelfSave = payload.saved_at; // pour reconnaître l'écho realtime de cette écriture
       // Vérifier si une ligne existe déjà
       const { data: row, error: selErr } = await sb.from('finance_data').select('user_id').eq('user_id', uid).maybeSingle();
       if (selErr) { console.error('saveToCloud select error:', selErr); throw selErr; }
@@ -2037,6 +2039,12 @@
           console.log('Realtime: changement détecté', payload.eventType);
           // Ne pas recharger si c'est nous qui venons de sauvegarder
           if (window._cloudLoading) return;
+          // Ignorer l'écho de notre propre sauvegarde (même saved_at que notre dernier write)
+          const incomingSavedAt = payload.new && payload.new.saved_at;
+          if (incomingSavedAt && incomingSavedAt === window._lastSelfSave) {
+            console.log('Realtime: écho de notre propre sauvegarde, ignoré');
+            return;
+          }
           window._showCloudToast('🔄 Données mises à jour depuis un autre appareil');
           // Recharger les données depuis le cloud
           window.loadFromCloud();
