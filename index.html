@@ -694,6 +694,18 @@
         .tx-amount-sign.positive { color: var(--success); }
         .tx-amount-sign.negative { color: var(--danger); }
         .tx-amount-sign.neutral  { color: var(--accent-purple); }
+        .tx-multi-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+        .tx-multi-add-btn {
+            padding: 7px 14px; border-radius: 20px;
+            border: 1.5px dashed var(--border);
+            background: transparent; color: var(--text-secondary);
+            font-size: 0.83rem; font-weight: 600; cursor: pointer;
+            font-family: inherit; transition: all 0.18s; white-space: nowrap;
+        }
+        .tx-multi-add-btn:hover {
+            border-color: var(--accent-blue); color: var(--accent-blue);
+            background: var(--accent-subtle);
+        }
         .tx-epargne-toggle { display: flex; gap: 6px; margin-top: 6px; }
         .tx-toggle-btn {
             flex: 1; padding: 6px 10px; border-radius: 8px;
@@ -3689,6 +3701,11 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                     <input type="number" id="input-tx-montant" class="tx-amount-input" placeholder="0.00" step="0.01" min="0" onblur="checkAutoSubmit()" onkeydown="if(event.key==='Enter'){event.preventDefault();checkAutoSubmit();}">
                     <span class="tx-amount-sign" id="tx-sign-preview">−</span>
                 </div>
+                <!-- Montants multiples : même catégorie/sous-catégorie, montants différents -->
+                <div class="tx-multi-row">
+                    <button type="button" class="tx-multi-add-btn" onmousedown="event.preventDefault()" onclick="addTxMultiAmount()" title="Ajouter ce montant à la liste et en saisir un autre (même catégorie/description)">➕ Autre montant</button>
+                    <div id="tx-multi-chips" class="tx-cat-chips"></div>
+                </div>
                 <!-- Toggle Épargne -->
                 <div id="tx-epargne-toggle" class="tx-epargne-toggle" style="display:none;">
                     <button type="button" class="tx-toggle-btn" id="btn-depot" onclick="setEpargneMode('depot')">⬇ Dépôt</button>
@@ -6431,36 +6448,85 @@ window.closeHelp = function() {
         }
     }
 
+    // ── Ajout multi-montants : même catégorie/description, montants différents ──
+    let txMultiAmounts = []; // valeurs en attente, en plus du champ montant courant
+
+    function addTxMultiAmount() {
+        const input = document.getElementById('input-tx-montant');
+        const val = parseFloat(input.value);
+        if (isNaN(val) || val <= 0) { alert('❌ Entrez un montant valide avant de l\'ajouter à la liste'); return; }
+        txMultiAmounts.push(val);
+        input.value = '';
+        input.focus();
+        renderTxMultiChips();
+    }
+
+    function removeTxMultiAmount(idx) {
+        txMultiAmounts.splice(idx, 1);
+        renderTxMultiChips();
+    }
+
+    function renderTxMultiChips() {
+        const container = document.getElementById('tx-multi-chips');
+        if (container) {
+            container.innerHTML = txMultiAmounts.map((v, i) =>
+                `<button type="button" class="tx-chip selected" onmousedown="event.preventDefault()" onclick="removeTxMultiAmount(${i})">${v.toFixed(2)} € ✕</button>`
+            ).join('');
+        }
+        const submitBtn = document.getElementById('tx-submit-btn');
+        if (submitBtn) {
+            submitBtn.textContent = txMultiAmounts.length > 0
+                ? `✅ Ajouter les transactions (${txMultiAmounts.length}+)`
+                : '✅ Ajouter la transaction';
+        }
+    }
+
+    function resetTxMultiAmounts() {
+        txMultiAmounts = [];
+        const container = document.getElementById('tx-multi-chips');
+        if (container) container.innerHTML = '';
+        const submitBtn = document.getElementById('tx-submit-btn');
+        if (submitBtn) submitBtn.textContent = '✅ Ajouter la transaction';
+    }
+
     function addNewTransaction() {
         const date = document.getElementById('input-tx-date').value;
         const cat  = document.getElementById('input-tx-cat').value;
         const desc = (document.getElementById('input-tx-desc-val')?.value || document.getElementById('input-tx-desc')?.value || '').trim();
-        const rawMontant = parseFloat(document.getElementById('input-tx-montant').value);
+        const rawMontantField = document.getElementById('input-tx-montant').value;
+        const rawMontantVal = parseFloat(rawMontantField);
+
+        // Montants à ajouter : la file d'attente + le champ courant s'il est rempli
+        const montantsToAdd = [...txMultiAmounts];
+        if (rawMontantField !== '' && !isNaN(rawMontantVal) && rawMontantVal > 0) {
+            montantsToAdd.push(rawMontantVal);
+        }
 
         if (!date)  { alert('❌ Veuillez sélectionner une date'); return; }
         if (!cat)   { alert('❌ Veuillez sélectionner une catégorie'); return; }
-        if (isNaN(rawMontant) || rawMontant <= 0) { alert('❌ Veuillez entrer un montant valide (supérieur à 0)'); return; }
-
-        // Logique des signes automatique
-        let montant;
-        if (cat === 'Entrée') {
-            montant = Math.abs(rawMontant);           // toujours positif
-        } else if (cat === 'Epargne') {
-            montant = epargneMode === 'retrait'
-                ? Math.abs(rawMontant)                // retrait = positif
-                : -Math.abs(rawMontant);              // dépôt = négatif
-        } else {
-            montant = -Math.abs(rawMontant);          // dépense = négatif
-        }
+        if (montantsToAdd.length === 0) { alert('❌ Veuillez entrer un montant valide (supérieur à 0)'); return; }
 
         try {
-            transactions.push({
-                id: Math.random(),
-                date: new Date(date),
-                categorie: cat,
-                desc: desc || 'Sans description',
-                montant,
-                projetId: null
+            montantsToAdd.forEach(rawMontant => {
+                // Logique des signes automatique
+                let montant;
+                if (cat === 'Entrée') {
+                    montant = Math.abs(rawMontant);           // toujours positif
+                } else if (cat === 'Epargne') {
+                    montant = epargneMode === 'retrait'
+                        ? Math.abs(rawMontant)                // retrait = positif
+                        : -Math.abs(rawMontant);              // dépôt = négatif
+                } else {
+                    montant = -Math.abs(rawMontant);          // dépense = négatif
+                }
+                transactions.push({
+                    id: Math.random(),
+                    date: new Date(date),
+                    categorie: cat,
+                    desc: desc || 'Sans description',
+                    montant,
+                    projetId: null
+                });
             });
 
             transactions.sort((a, b) => b.date - a.date);
@@ -6472,6 +6538,7 @@ window.closeHelp = function() {
             saveToLocalStorage();
             refreshAllViews();
             refreshDescriptionDatalist();
+            resetTxMultiAmounts();
 
             // Reset formulaire
             // Conserver la date pour la prochaine saisie
@@ -9687,6 +9754,8 @@ window.closeHelp = function() {
     };
 
     function selectTxCat(cat) {
+        // Nouvelle catégorie : les montants en attente ne s'y rattachent plus
+        if (typeof resetTxMultiAmounts === 'function') resetTxMultiAmounts();
         const hidden = document.getElementById('input-tx-cat');
         if (hidden) hidden.value = cat;
         // Chips catégorie
@@ -9746,6 +9815,8 @@ window.closeHelp = function() {
 
     function selectTxDesc(desc) {
         const descVal = document.getElementById('input-tx-desc-val');
+        // Changement de sous-catégorie : les montants en attente ne s'y rattachent plus
+        if (descVal && descVal.value !== desc && typeof resetTxMultiAmounts === 'function') resetTxMultiAmounts();
         const descText = document.getElementById('input-tx-desc');
         if (descVal) descVal.value = desc;
         if (descText) descText.value = desc;
