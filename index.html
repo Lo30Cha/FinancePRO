@@ -5,7 +5,7 @@
     <!-- ===== PWA / iOS App ===== -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" id="meta-status-bar" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Finance Pro">
     <meta name="theme-color" id="meta-theme-color" content="#F2F2F7">
     <script>
@@ -21,6 +21,9 @@
         var dark = pref === 'dark' || (pref === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
         var m = document.getElementById('meta-theme-color'); if (m) m.setAttribute('content', dark ? '#000000' : '#F2F2F7');
+        // Barre d'état iPhone : en sombre, l'app passe derrière la Dynamic Island (texte blanc sur fond noir) ;
+        // en clair, barre d'état claire (iOS ne sait pas afficher l'heure en noir par-dessus la page).
+        var sb = document.getElementById('meta-status-bar'); if (sb) sb.setAttribute('content', dark ? 'black-translucent' : 'default');
     })();
     </script>
     <meta name="viewport" id="app-viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -83,12 +86,12 @@
             --accent-purple: #1C1C1E;
             --accent-pink:   #1C1C1E;
             --on-accent:     #FFFFFF;
-            --save:          #8E8E93;   /* épargne : gris moyen */
-
-            --success: #1C1C1E;         /* positif = encre (pas de vert) */
-            --danger:  #C0362C;         /* rouge gardé pour les alertes : dépassement, suppression, erreur */
-            --warning: #9A5B00;
-            --debt:    #1C1C1E;
+            /* Habillage noir et blanc ; la couleur est réservée à ce qui compte : */
+            --save:          #2F6FDB;   /* épargne */
+            --success: #1E7B4F;         /* revenus, reste, budget tenu, évolution favorable */
+            --danger:  #C0362C;         /* dépassement, suppression, erreur */
+            --warning: #9A5B00;         /* budget qui file trop vite */
+            --debt:    #B5540F;         /* dette (prêts) */
 
             --text-primary:   #1C1C1E;
             --text-secondary: #6C6C70;
@@ -119,12 +122,11 @@
             --accent-purple: #F2F2F7;
             --accent-pink:   #F2F2F7;
             --on-accent:     #000000;
-            --save:          #8E8E93;
-
-            --success: #F2F2F7;
+            --save:          #5B9BFF;
+            --success: #4CC27A;
             --danger:  #FF6B5E;
             --warning: #F0A847;
-            --debt:    #F2F2F7;
+            --debt:    #F39A4B;
 
             --text-primary:   #F2F2F7;
             --text-secondary: #98989F;
@@ -2115,7 +2117,7 @@ nav { background: var(--nav-bg); border-right: 1px solid var(--border); padding:
 .text-danger  { color: var(--danger) !important; }
 .text-warning { color: var(--warning) !important; }
 .text-secondary { color: var(--text-secondary) !important; }
-.text-savings { color: var(--text-secondary) !important; }
+.text-savings { color: var(--save) !important; }
 .detail-clickable { cursor: pointer; }
 .detail-clickable:hover { background: var(--card-hover); }
 
@@ -2135,7 +2137,7 @@ nav { background: var(--nav-bg); border-right: 1px solid var(--border); padding:
 .swatch-spent { background: var(--text-primary); }
 .swatch-save  { background: var(--save); }
 .swatch-pending { background: repeating-linear-gradient(135deg, var(--hatch) 0 2px, var(--bg-tertiary) 2px 4px); }
-.swatch-rest  { background: var(--bg-tertiary); box-shadow: inset 0 0 0 1px var(--hatch); }
+.swatch-rest  { background: color-mix(in srgb, var(--success) 22%, var(--bg-tertiary)); box-shadow: inset 0 0 0 1px var(--success); }
 .cat-dot { width: 10px; height: 10px; border-radius: 5px; flex-shrink: 0; display: inline-block; }
 
 /* ── Boutons ── */
@@ -2196,24 +2198,30 @@ tr:hover td { background: none; }
 .ruler-seg.spent { background: var(--text-primary); }
 .ruler-seg.save { background: var(--save); }
 .ruler-seg.pending { background: repeating-linear-gradient(135deg, var(--hatch) 0 3px, var(--bg-tertiary) 3px 6px); }
-.ruler-seg.rest { background: var(--bg-tertiary); flex: 1; }
+.ruler-seg.rest { background: color-mix(in srgb, var(--success) 22%, var(--bg-tertiary)); flex: 1; }
 .ruler-seg.over { background: var(--danger); }
 .ruler-scale { position: relative; height: 20px; }
 .ruler-tick { position: absolute; top: 4px; width: 1px; background: var(--text-secondary); }
 .ruler-scale-label { position: absolute; top: 8px; font-size: 11px; color: var(--text-secondary); transform: translateX(-50%); white-space: nowrap; }
-.reste-goal { font-size: 13px; color: var(--text-secondary); padding: 10px 0 12px; border-top: 0.5px solid var(--border); }
+.reste-goal { font-size: 13px; color: var(--text-secondary); padding: 12px 0 14px; border-top: 0.5px solid var(--border); }
+.goal-head { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 15px; color: var(--text-primary); }
+.goal-head strong { font-weight: 600; }
+.goal-bar { height: 10px; border-radius: 5px; background: var(--bg-tertiary); overflow: hidden; }
+.goal-bar-fill { height: 10px; border-radius: 5px; background: var(--success); transition: width .5s ease-out; }
 
 /* ── Budgets ── */
 .budget-item { padding: 12px 0; border-bottom: 0.5px solid var(--border); cursor: pointer; }
 .budget-item:last-child { border-bottom: none; }
 .budget-item-head { font-size: 17px; margin-bottom: 8px; }
 .budget-item-head .amount-hidden { font-size: 15px; color: var(--text-secondary); }
-.budget-bar { height: 4px; border-radius: 2px; background: var(--bg-tertiary); }
-.budget-bar-fill { height: 4px; border-radius: 2px; }
+.budget-bar { height: 10px; border-radius: 5px; background: var(--bg-tertiary); }
+.budget-bar-fill { height: 10px; border-radius: 5px; min-width: 10px; transition: width .45s ease-out; }
+.budget-bar-fill.is-empty { min-width: 0; }
 .budget-ok { background: var(--success); }
 .budget-warn { background: var(--warning); }
 .budget-over { background: var(--danger); }
-.budget-bar-today { top: -3px; width: 2px; height: 10px; background: var(--text-primary); opacity: 1; }
+.budget-bar-today { top: -3px; width: 2px; height: 16px; background: var(--text-primary); opacity: .55; }
+.budget-pct { font-size: 13px; font-weight: 600; margin-left: 6px; }
 .budget-item-foot { font-size: 13px; margin-top: 6px; }
 
 /* ── Transactions ── */
@@ -2334,6 +2342,46 @@ tr:hover td { background: none; }
 @media (max-width: 768px) { .nav-item.active { color: var(--text-primary) !important; } }
 .icon-btn { color: var(--text-primary); }
 .more-menu-item svg { color: var(--text-secondary); }
+
+/* ===== iPhone : contenu derrière la Dynamic Island (mode sombre) ===== */
+body.pwa-mode::before {
+    content: ""; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top, 0px); z-index: 300; pointer-events: none;
+    background: linear-gradient(var(--bg-primary) 55%, color-mix(in srgb, var(--bg-primary) 0%, transparent));
+}
+
+/* Écrans plein écran : ne pas passer sous l'heure / la Dynamic Island */
+body.pwa-mode .settings-scroll-area { padding-top: calc(20px + env(safe-area-inset-top, 0px)); }
+body.pwa-mode #lock-screen { padding-top: calc(24px + env(safe-area-inset-top, 0px)); }
+body.pwa-mode .quick-add-inner, body.pwa-mode .more-menu-inner { max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 12px); }
+body.pwa-mode .block-detail-modal, body.pwa-mode #edit-tx-modal, body.pwa-mode .app-modal { padding-top: calc(16px + env(safe-area-inset-top, 0px)) !important; }
+
+/* ===== Barre d'onglets mobile « Liquid Glass » : capsule flottante translucide ===== */
+@media (max-width: 768px) {
+    html[data-theme] body nav {
+        left: 12px !important; right: 12px !important; bottom: calc(env(safe-area-inset-bottom, 0px) + 6px) !important;
+        width: auto !important; box-sizing: border-box;
+        height: 64px !important; padding: 0 6px !important; border-radius: 32px;
+        background: rgba(250, 250, 252, 0.62) !important;
+        border: 0.5px solid rgba(255, 255, 255, 0.7) !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.75), inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+        -webkit-backdrop-filter: blur(22px) saturate(185%) !important; backdrop-filter: blur(22px) saturate(185%) !important;
+        align-items: center !important;
+    }
+    html[data-theme="dark"] body nav {
+        background: rgba(36, 36, 40, 0.58) !important;
+        border-color: rgba(255, 255, 255, 0.14) !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+    }
+    html[data-theme] body nav .nav-item { height: 52px; margin: 0 1px; border-radius: 26px; padding: 4px 0 2px !important; transition: background .15s; }
+    html[data-theme] body nav .nav-item.active { background: rgba(0, 0, 0, 0.07) !important; }
+    html[data-theme="dark"] body nav .nav-item.active { background: rgba(255, 255, 255, 0.13) !important; }
+    .tab-content { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)) !important; }
+    #fab-add { bottom: calc(env(safe-area-inset-bottom, 0px) + 82px) !important; right: 18px; }
+    body.demo-mode #fab-add { bottom: calc(env(safe-area-inset-bottom, 0px) + 128px) !important; }
+    #demo-banner { left: 12px !important; right: 12px !important; width: auto !important; bottom: calc(env(safe-area-inset-bottom, 0px) + 78px) !important;
+        border-radius: 14px; border: 0.5px solid var(--border) !important; }
+    .app-toast { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+}
 
 /* ── Plus d'effets coûteux ── */
 *, *::before, *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
@@ -6516,8 +6564,8 @@ window.closeHelp = function() {
             <!-- Décomposition mensualité du mois en cours -->
             <div style="font-size:0.75rem;font-weight:700;text-transform: none;letter-spacing: 0;color:var(--text-secondary);margin-bottom:8px;">Mensualité du mois en cours</div>
             <div class="pret-amort-bar">
-                <div class="pret-amort-bar-capital" style="width:${fmtNum(pctCapital, 1)} %;"></div>
-                <div class="pret-amort-bar-interets" style="width:${fmtNum(pctInterets, 1)} %;"></div>
+                <div class="pret-amort-bar-capital" style="width:${(pctCapital).toFixed(1)}%;"></div>
+                <div class="pret-amort-bar-interets" style="width:${(pctInterets).toFixed(1)}%;"></div>
             </div>
             <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:16px;">
                 <span style="color:var(--accent);">▪ Capital <span class="amount-hidden">${fmt2(capitalMoisCourant)}</span> (${pctCapital.toFixed(0)}%)</span>
@@ -6607,7 +6655,7 @@ window.closeHelp = function() {
                         <button class="action-btn action-btn-delete" onclick="deletePret(${p.id})" title="Supprimer" aria-label="Supprimer">${ICONS.trash}</button>
                     </div>
                 </div>
-                <div class="pret-progress-bar"><div class="pret-progress-fill" style="width:${fmtNum(pct, 1)} %"></div></div>
+                <div class="pret-progress-bar"><div class="pret-progress-fill" style="width:${(pct).toFixed(1)}%"></div></div>
                 <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:var(--text-secondary);margin-bottom:10px;">
                     <span>Capital remboursé ${fmtNum(pct, 1)} %</span>
                     <span>Fin : ${dFin.toLocaleDateString('fr-FR',{month:'short',year:'numeric'})} (${moisRestants} mois)</span>
@@ -11143,7 +11191,7 @@ window.closeHelp = function() {
                 .map(r => `${r.desc || r.categorie}, le ${Math.min(r.jour || 1, lastDay)}`).join(' ; ');
         }
         const restEl = document.getElementById('reste-rest');
-        if (restEl) { restEl.textContent = fmtE(reste); restEl.className = 'cell-value cell-strong amount-hidden' + (reste < 0 ? ' text-danger' : ''); }
+        if (restEl) { restEl.textContent = fmtE(reste); restEl.className = 'cell-value cell-strong amount-hidden ' + (reste < 0 ? 'text-danger' : 'text-success'); }
         const revSub = document.getElementById('reste-rev-sub');
         if (revSub) revSub.textContent = revAVenir > 0 ? `dont ${fmtE(revAVenir)} encore à venir` : '';
         const revEl = document.getElementById('mois-revenus');
@@ -11178,7 +11226,10 @@ window.closeHelp = function() {
         const objectif = appSettings.savingsTarget || 0;
         if (bdEl) {
             bdEl.hidden = !(objectif > 0 && stats.revenus > 0);
-            bdEl.innerHTML = `Taux d’épargne : <span class="${taux >= objectif ? 'text-success' : 'text-warning'}">${fmtNum(taux, 1)} %</span> pour un objectif de ${fmtNum(objectif, 0)} %`;
+            const prog = objectif > 0 ? Math.max(0, Math.min(100, taux / objectif * 100)) : 0;
+            bdEl.innerHTML = `<div class="goal-head"><span>Objectif d’épargne</span><span><strong class="${taux >= objectif ? 'text-success' : ''}">${fmtNum(taux, 1)} %</strong> sur ${fmtNum(objectif, 0)} %</span></div>
+                <div class="goal-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${prog.toFixed(0)}" aria-label="Objectif d’épargne atteint à ${prog.toFixed(0)} %"><div class="goal-bar-fill" style="width:0%" data-w="${prog.toFixed(1)}%"></div></div>`;
+            animateProgressBars(bdEl);
         }
 
         // Budgets
@@ -11199,14 +11250,21 @@ window.closeHelp = function() {
             const catJs = jsArg(cat);
             return `<div class="budget-item detail-clickable" onclick="openBudgetDetail(${catJs})">
                 <div class="budget-item-head">
-                    <span style="display:inline-flex;align-items:center;gap:8px;">${catDot(cat)}${escapeHTML(cat)}</span>
+                    <span style="display:inline-flex;align-items:center;gap:8px;">${catDot(cat)}${escapeHTML(cat)}<span class="budget-pct ${level === 'over' ? 'text-danger' : (level === 'warn' ? 'text-warning' : 'text-success')}">${pct.toFixed(0)} %</span></span>
                     <span class="amount-hidden">${fmtE(spent)} <span class="text-secondary">/ ${fmtE(budget)}</span></span>
                 </div>
-                <div class="budget-bar"><div class="budget-bar-fill budget-${level}" style="width:${fmtNum(Math.min(100, pct), 1)} %"></div>
-                    ${isCurrent ? `<div class="budget-bar-today" style="left:${fmtNum((progressDay * 100), 1)} %" title="Aujourd'hui"></div>` : ''}</div>
-                <div class="budget-item-foot ${left < 0 ? 'text-danger' : (level === 'warn' ? 'text-warning' : 'text-secondary')}"><span class="amount-hidden">${left >= 0 ? 'Reste ' + fmtE(left) : 'Dépassé de ' + fmtE(-left)}</span>, ${pct.toFixed(0)} % utilisés</div>
+                <div class="budget-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, pct).toFixed(0)}" aria-label="${escapeHTML(cat)} : ${pct.toFixed(0)} % du budget"><div class="budget-bar-fill budget-${level}${pct <= 0 ? ' is-empty' : ''}" style="width:0%" data-w="${(Math.min(100, pct)).toFixed(1)}%"></div>
+                    ${isCurrent ? `<div class="budget-bar-today" style="left:${((progressDay * 100)).toFixed(1)}%" title="Aujourd'hui"></div>` : ''}</div>
+                <div class="budget-item-foot ${left < 0 ? 'text-danger' : (level === 'warn' ? 'text-warning' : 'text-secondary')}"><span class="amount-hidden">${left >= 0 ? 'Reste ' + fmtE(left) : 'Dépassé de ' + fmtE(-left)}</span>${level === 'warn' && left >= 0 ? ', plus vite que le mois' : ''}</div>
             </div>`;
         }).join('');
+        animateProgressBars(bl);
+    }
+
+    /** Fait « pousser » les barres de progression jusqu'à leur valeur */
+    function animateProgressBars(root) {
+        const bars = (root || document).querySelectorAll('[data-w]');
+        requestAnimationFrame(() => requestAnimationFrame(() => bars.forEach(b => { b.style.width = b.dataset.w; })));
     }
 
     function openBudgetDetail(cat) {
