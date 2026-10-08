@@ -8,7 +8,15 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Finance Pro">
     <meta name="theme-color" content="#0a0e27">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" id="app-viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <script>
+    // iPhone/iPad : empêche le zoom automatique quand on touche un champ de saisie.
+    // (iOS laisse quand même zoomer avec deux doigts si besoin.)
+    if (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+        document.getElementById('app-viewport').setAttribute('content',
+            'width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover');
+    }
+    </script>
     <link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAADL0lEQVR4nO3dMW4bRxiA0VHgQmrUGdABnBO5Tm6RUoXh0r6A2/S6UeA6N0ipFIFU2JBNrnazsx/f60kMwI8/d5fL4dX1ze3jgIhf9l4ArEnQpAiaFEGTImhSBE2KoEkRNClvzn3A73/8tcU6cv789G7vJVwkE5oUQZMiaFIETYqgSRE0KYImRdCkCJoUQZMiaFIETYqgSRE0KYImRdCkCJoUQZMiaFIETYqgSRE0KYImRdCknL3RzP/BJi0sZUKTImhSBE2KoEkRNCmCJkXQpAiaFEGTImhSpvzqe4mP7//eewkX4/7hbu8lvMiEJkXQnG3mT0NBs8isUQuaxWaM+ur65vbxnAfM+sebXz683eR5P//2zybPWzLTSaIJzavNNKkFzSpmiVrQrGaGqAVNiqBZ1d5TWtCkCJrV7TmlBU2KoNnEXlNa0KQImhRBkyJoNrPHcbSgSRE0KYImRdCkZLYx2NpMv8pYy943Em1B0Bfs2zdpIXCHHDy7f7g7/CeRoPnOkcMWNC86YtSC5oeOFrWg+amlUe/xZpjyKseSP9789evxz9Bndv9wd4irICY0KYLmZEc4nhY0m9grfkGTImhSBE2KoEkRNCc75zq0fTlgBYLmJEf4lnAMQXOCpTHbxoDpHGUyPxE0LzpazGNMercd+zpiyE8EzbMjh/xE0BesEPC3BH2i4otf5KSQFEGTImhSBE2KoEkRNJvZ43eFgiZF0KQImk3YxgBWIGhSBM3q9twyTNCknH233ZKtbrkce2/oaEKTImhWs/d0HkPQrGSGmMcQNCuYJeYxBM0rzRTzGILmFWaLeQxBs9CMMY8haBaYNeYxBE2MfTnOMPNk4j8mNCmCJkXQpAiaFEGTImhSBE2KoEkRNCmCJkXQpAiaFEGTImhSBE2KoEkRNCmCJkXQpAiaFEGTImhSBE2KoEkRNCmCJkXQpAiaFEGTImhSBE2KoEkRNCmCJkXQpAiaFEGTImhSBE2KoEkRNCmCJkXQpAiaFEGTImhSBE2KoEkRNCmCJkXQpAiaFEGTImhSrq5vbh/3XgSsxYQmRdCkCJoUQZMiaFIETYqgSRE0Kf8CWPlf+PszZwIAAAAASUVORK5CYII=">
     <link rel="apple-touch-icon" sizes="152x152" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJgAAACYCAYAAAAYwiAhAAACqUlEQVR4nO3dMW4TQRiA0QRRJA0dUg4AJ0oNt6BMgVLCBWjpcyNEnRtQhipSSjvKt7Oz814dWSPl878re3Z8eXX94ekCIu9GL4BjExgpgZESGCmBkRIYKYGRen/qH3799qdcx679/vFp9BKmZYKREhgpgZESGCmBkRIYKYGREhgpgZESGCmBkRIYKYGREhgpgZESGCmBkRIYKYGREhipkx/6KHiY4vhMMFICIyUwUgIjJTBSAiMlMFICIzX0g9Zz3N8+jl7CdO4ebkYvwQSjJbADu799HD75BbaAkZFdnvpLH6NPOPz1/eObvdbPL//e7LVmMuKezARbyIhJJrDFbB2ZwBa0ZWQCIyWwRW01xQRGSmCkBLawLS6TAiMlMFICW1x9mRQYKYGREhgpgZGaZk/+W9vDfvXXGL1D9VzLBjarl2+MGWJziZzY3cPN7iexwA5gz5EJ7CD2Gtk0Jxx+/rv/+43R7h5uzr4vq8M0wQ5mb5NMYKQEdkCnTrEtpp3ASAmMlMBICeyATv2owp58piewg9nbF+ACO5DXxGVPPifZ2+R6JrAD2GtcFxc2HE5tz2E9E9hkZojqpWUDm+0fNSv3YKQERkpgpARGSmCLsyefqQmMlMAWZk8+0xMYKYEtaqsHdE/+LvKcx/zhmQm2oC2PFxDYYrY+u0JgC/GTymRGnbojsAWMPNJp2R2tK9jDWWEmGKmlJ9ge3uFHZ4KREhgpgZESGCmBkRIYKYGREhgpgZESGCmBkRIYKYGREhgpgZESGCmBkRIYKYGREhgpgZESGCmBkRIYKYGREhgpgZESGCmBkRIYKYGREhgpgZESGCmBkRIYKYGREhgpgZESGCmBkRIYKYGREhgpgZG6vLr+8DR6ERyXCUZKYKQERkpgpARGSmCkBEbqPxcVVzz51VqEAAAAAElFTkSuQmCC">
     <link rel="apple-touch-icon" sizes="120x120" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAB4CAYAAAA5ZDbSAAACFElEQVR4nO3cLVLDABBA4YRBtKaOmR4AToSGWyArGCRcAIvvjRg0N0AWW5cA2Z883qdhmuFlA3STjpvt7jQI66L6ABTLwHAGhjMwnIHhLqe+4P7hPeM4wr09X1cfQgknGM7AcAaGMzCcgeEMDGdgOAPDGRjOwHAGhjMwnIHhDAxnYDgDw00u/JfwX5ftHTjBcAaGMzCcgeEMDGdguJR/k6Y83X5WH0K6w3Gf8jpOcJGsk9rAhTIij1MPgGc8uvL6ePXr7325+1rwSGpEXq6d4AYiJ9nATURFNnAjEZENDGfgZpaeYgPDGRjOwA0teZk2MJyB4QwM12Jd+FdZq7e5Oq0/EYG7OT/hqmN7iQ52OO5LrzAGTlIV2cCJKiK3eHTl5qPPHyUdLHkiOMHJsqfYwHAGbmbpCTdwM+6DVy77jQ8Dwxk40dzpdR+8QlXvSbtsCFa9bDBwgOqo5xCBO/1Au/F3MJyB4QwMZ+CGXBdqNgPDGbgZ14X6EQM3EnE7z+Q7WX7W87o5wU1E3Yxn4Ab8nCyw6NtoDVwo4x5pAxfJugEesQ8ehn7PCHfhBMMZGM7AcAaGMzCcgeEMDGdgOAPDGRjOwHAGhjMwnIHhDAxnYDgDwxkYzsBwBoYzMJyB4QwMZ2A4A8MZGM7AcAaGMzCcgeEMDGdgOAPDGRjOwHAGhhs3292p+iAUxwmGMzCcgeEMDGdguG+Fkkp+XZOE/AAAAABJRU5ErkJggg==">
@@ -1185,7 +1193,7 @@
         }
         .loan-kpi-row {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 10px;
             margin-bottom: 12px;
         }
@@ -1194,6 +1202,7 @@
             .pret-form-grid { grid-template-columns: 1fr 1fr; }
             .loan-kpi-row { grid-template-columns: 1fr; }
         }
+        .loan-kpi-row.no-loans { grid-template-columns: 1fr; }
 
         /* ===== MODE PWA — FLAT LAYOUT (sans bulles) ===== */
         /* Détecté via .pwa-mode sur body (navigator.standalone ou display-mode:standalone) */
@@ -1533,7 +1542,9 @@
             .custom-grid { grid-template-columns: repeat(2, 1fr); }
         }
         @media (max-width: 600px) {
-            .custom-grid { grid-template-columns: 1fr; }
+            .custom-grid { grid-template-columns: minmax(0, 1fr); }
+            /* Les blocs larges (« span 2/3 ») créaient des colonnes en trop qui sortaient de l'écran */
+            .custom-grid > * { grid-column: 1 / -1 !important; min-width: 0; }
         }
 
         /* ── Custom block card ── */
@@ -6693,7 +6704,9 @@ window.closeHelp = function() {
 
         // Adapter la grille : 1 colonne si pas de prêts, 3 si prêts
         const kpiRow = document.querySelector('.loan-kpi-row');
-        if (kpiRow) kpiRow.style.gridTemplateColumns = hasLoans ? 'repeat(3,1fr)' : '1fr';
+        // Classe plutôt que style inline : un style inline écrasait la règle mobile (1 colonne)
+        // et faisait déborder les cartes hors de l'écran sur téléphone.
+        if (kpiRow) { kpiRow.style.gridTemplateColumns = ''; kpiRow.classList.toggle('no-loans', !hasLoans); }
 
         // Légende graphique — masquer les 2 courbes prêt si aucun prêt
         const chartLegend = document.querySelector('.pat-chart-legend');
@@ -11829,6 +11842,14 @@ window.exitLocalMode = function() {
      AMÉLIORATIONS : verrouillage, saisie rapide, mobile, raccourcis PC
      ===================================================================== -->
 <style>
+/* ── Pas de zoom à la saisie sur téléphone ──
+   Safari iOS zoome sur tout champ dont le texte fait moins de 16 px. */
+@media (hover: none) and (pointer: coarse) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+    select, textarea { font-size: 16px !important; }
+}
+html, body { max-width: 100%; overflow-x: hidden; }
+
 /* ── Toast générique (avec « Annuler ») ── */
 .app-toast {
     position: fixed; left: 50%; bottom: 24px; z-index: 10050;
