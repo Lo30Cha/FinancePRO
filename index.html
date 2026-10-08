@@ -11849,6 +11849,9 @@ window.exitLocalMode = function() {
     select, textarea { font-size: 16px !important; }
 }
 html, body { max-width: 100%; overflow-x: hidden; }
+/* Hauteur réelle de l'écran (mise à jour en JS) : 100dvh reste parfois « coincé » sur iOS
+   après la fermeture du clavier. */
+body { height: var(--app-height, 100dvh) !important; }
 
 /* ── Toast générique (avec « Annuler ») ── */
 .app-toast {
@@ -12236,6 +12239,40 @@ body.locked > *:not(#lock-screen):not(script):not(style) { filter: blur(14px); }
     // À l'ouverture de l'app : verrouillé si un code existe (remplace la reconnexion forcée)
     if (hasPin()) show('unlock');
     resetIdle();
+})();
+
+// =====================================================================
+// ===== CLAVIER iOS : remettre la page en place à la fermeture =====
+// Quand le clavier s'ouvre, iOS fait glisser toute la page vers le haut pour montrer le
+// champ. À la fermeture, il ne la redescend pas toujours : la barre du bas reste décalée
+// (vide en dessous) et le défilement des onglets se dérègle. On remet donc la page à
+// zéro dès qu'aucun champ n'a plus le focus.
+// =====================================================================
+(function() {
+    const isField = el => el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+    const setAppHeight = () => document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
+    function resetPage() {
+        if (isField(document.activeElement)) return; // clavier encore ouvert
+        if (window.scrollY || window.scrollX || document.documentElement.scrollTop || document.body.scrollTop) {
+            window.scrollTo(0, 0);
+            document.documentElement.scrollTop = 0;
+            document.body.scrollTop = 0;
+        }
+        setAppHeight();
+    }
+    setAppHeight();
+    window.addEventListener('resize', () => { if (!isField(document.activeElement)) setAppHeight(); });
+    window.addEventListener('orientationchange', () => setTimeout(resetPage, 300));
+    // Fermeture du clavier : perte de focus (y compris le bouton « OK » du clavier iOS)
+    document.addEventListener('focusout', () => { setTimeout(resetPage, 50); setTimeout(resetPage, 350); }, true);
+    if (window.visualViewport) {
+        visualViewport.addEventListener('resize', () => {
+            if (visualViewport.height > window.innerHeight * 0.85) { setTimeout(resetPage, 50); setTimeout(resetPage, 350); }
+        });
+    }
+    // Filet de sécurité : la page elle-même ne doit jamais rester décalée hors saisie
+    window.addEventListener('scroll', () => { if (!isField(document.activeElement)) resetPage(); }, { passive: true });
+    window.resetPageAfterKeyboard = resetPage;
 })();
 
 // =====================================================================
