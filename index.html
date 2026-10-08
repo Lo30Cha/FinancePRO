@@ -1656,6 +1656,22 @@
     </style>
 
 <!-- ===== SUPABASE ===== -->
+<script>
+  // Retour de la banque (?code=…&state=fpbank-…) : mémorisé puis retiré de l'adresse avant le
+  // démarrage de Supabase, qui ne doit pas confondre ce retour avec une connexion à son compte.
+  (function () {
+    try {
+      var q = new URLSearchParams(location.search);
+      var st = q.get('state') || '';
+      if (st.indexOf('fpbank-') !== 0) return;
+      localStorage.setItem('finance-bank-callback', JSON.stringify({
+        code: q.get('code') || '', state: st, error: q.get('error') || '',
+        error_description: q.get('error_description') || '', at: Date.now()
+      }));
+      history.replaceState(null, '', location.pathname + location.hash);
+    } catch (e) {}
+  })();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   // ── Config ───────────────────────────────────────────────────
@@ -1795,6 +1811,8 @@
       console.error('loadFromCloud catch:', e);
     } finally {
       window._cloudLoading = false;
+      // Banque : traiter un retour de liaison, ou lancer la synchro automatique si elle est due
+      if (typeof window.bankAfterCloudLoad === 'function') setTimeout(window.bankAfterCloudLoad, 400);
     }
   };
 
@@ -3800,6 +3818,7 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
             <h1>Transactions</h1>
             <p>Consultez, recherchez et gérez vos transactions</p>
         </div>
+        <div id="bank-strip" class="bank-strip" hidden></div>
 
         <div class="tx-add-card" style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--border);">
             <!-- Champs cachés -->
@@ -4073,6 +4092,13 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                     </select>
                 </div>
             </div>
+        </div>
+
+        <!-- BANQUE -->
+        <div class="settings-section" id="settings-bank">
+            <div class="settings-section-title">Banque</div>
+            <p class="settings-help">Importe automatiquement les opérations de votre compte Crédit Agricole, via Enable Banking (prestataire agréé DSP2). Lecture seule : aucun paiement possible. L'accès se renouvelle tous les 3 à 6 mois, avec une validation dans l'app Ma Banque.</p>
+            <div id="bank-settings-body"></div>
         </div>
 
         <div class="settings-section">
@@ -5880,6 +5906,9 @@ window.closeHelp = function() {
             const ids = new Set((appSettings[key] || []).map(x => x.id));
             (cloudSettings[key] || []).forEach(x => { if (!ids.has(x.id)) { (appSettings[key] = appSettings[key] || []).push(x); changed = true; } });
         });
+        // Banque : la configuration la plus récente gagne (liaison faite sur un autre appareil)
+        const cb = cloudSettings.bank, lb = appSettings.bank;
+        if (cb && (!lb || (cb.updatedAt || 0) > (lb.updatedAt || 0))) { appSettings.bank = cb; changed = true; }
         persistAllLocal();
         if (changed) {
             initializeMonthSelector();
@@ -6032,6 +6061,7 @@ window.closeHelp = function() {
         renderTransactions();
         updateDataStats();
         refreshDescriptionDatalist();
+        if (typeof renderBankStrip === 'function') renderBankStrip();
         // Initialiser le navigateur de jour si la date n'est pas encore définie
         if (typeof _updateTxDayInput === 'function') _updateTxDayInput();
     }
@@ -10328,6 +10358,7 @@ window.closeHelp = function() {
         if (typeof renderRecurrencesList === 'function') renderRecurrencesList();
         if (typeof renderRulesList === 'function') renderRulesList();
         if (typeof renderPinSettings === 'function') renderPinSettings();
+        if (typeof renderBankUI === 'function') renderBankUI();
         // Stats
         updateDataStats();
         // Historique patrimoine
@@ -10830,7 +10861,7 @@ window.closeHelp = function() {
         // les paramètres (projets, récurrences, règles, catégories, suppressions…) sont conservées.
         const keep = {};
         ['projets', 'recurrences', 'categoryRules', 'categories', 'categoryColors', 'customDescs',
-         'deletedTxIds', 'budgets', 'lastEpargneCompteId'].forEach(k => { if (appSettings[k] !== undefined) keep[k] = appSettings[k]; });
+         'deletedTxIds', 'budgets', 'lastEpargneCompteId', 'bank', 'bankRulesV1'].forEach(k => { if (appSettings[k] !== undefined) keep[k] = appSettings[k]; });
         appSettings = {
             theme: 'auto', themeV2: true, customColors: {}, appName: 'FINANCE PRO', currency: '€',
             recentCount: 8, animations: true, compact: false, savingsTarget: 20,
@@ -11026,9 +11057,20 @@ window.closeHelp = function() {
         ['retrait dab', 'Autres', 'Distributeur'], ['retrait', 'Autres', 'Distributeur'],
         ['mbda', 'Entrée', 'Salaire MBDA'], ['caf ', 'Entrée', 'CAF'], ['loyer', 'Loyers', '']
     ].map(([motif, categorie, desc], i) => ({ id: 'def-' + i, motif, categorie, desc }));
+    // Ajoutées avec la synchro bancaire : virements entre le compte courant et l'épargne
+    const BANK_CATEGORY_RULES = [
+        { id: 'def-bank-livret', motif: 'livret', categorie: 'Epargne', desc: 'Livret' },
+        { id: 'def-bank-ldds', motif: 'ldds', categorie: 'Epargne', desc: 'LDDS' },
+        { id: 'def-bank-lep', motif: 'lep', categorie: 'Epargne', desc: 'LEP' }
+    ];
 
     function getCategoryRules() {
-        if (!appSettings.categoryRules) appSettings.categoryRules = DEFAULT_CATEGORY_RULES.map(r => ({ ...r }));
+        if (!appSettings.categoryRules) appSettings.categoryRules = [...DEFAULT_CATEGORY_RULES, ...BANK_CATEGORY_RULES].map(r => ({ ...r }));
+        if (!appSettings.bankRulesV1) {
+            const ids = new Set(appSettings.categoryRules.map(r => r.id));
+            BANK_CATEGORY_RULES.forEach(r => { if (!ids.has(r.id)) appSettings.categoryRules.push({ ...r }); });
+            appSettings.bankRulesV1 = true;
+        }
         return appSettings.categoryRules;
     }
 
@@ -11095,6 +11137,359 @@ window.closeHelp = function() {
         localStorage.setItem('finance-settings', JSON.stringify(appSettings));
         scheduleCloudSync();
         renderRulesList();
+    }
+
+
+    // ── Banque : synchro des opérations (Enable Banking via la fonction Supabase « bank ») ──
+    // Lecture seule : l'app récupère opérations et soldes, elle ne peut faire aucun paiement.
+    // La clé Enable Banking reste côté serveur ; l'app n'envoie que le jeton de session Supabase.
+    const BANK_AUTO_SYNC_MS = 6 * 3600 * 1000; // DSP2 : environ 4 accès par jour sans l'utilisateur
+    let bankAspspList = null, bankAspspLoading = false, bankAspspError = null, bankSyncing = false;
+
+    function bankFnUrl() { return window.BANK_FN_URL || (SUPABASE_URL + '/functions/v1/bank'); }
+    function bankAvailable() { return !window._demoMode && !window._localMode && !!window._sb; }
+    function bankLinked() { const b = appSettings.bank; return !!(b && b.session_id && Array.isArray(b.accounts) && b.accounts.length); }
+    function bankExpired() { const b = appSettings.bank; return !!(b && b.valid_until && new Date(b.valid_until) < new Date()); }
+    function bankDaysLeft() { const b = appSettings.bank; return b && b.valid_until ? Math.floor((new Date(b.valid_until) - Date.now()) / 864e5) : null; }
+    function bankRedirectUrl() { return location.origin + location.pathname.replace(/index\.html$/, ''); }
+    function firstOfMonthISO() { const n = new Date(); return toISODateLocal(new Date(n.getFullYear(), n.getMonth(), 1)); }
+    function saveBankSettings() {
+        appSettings.bank = appSettings.bank || {};
+        appSettings.bank.updatedAt = Date.now();
+        localStorage.setItem('finance-settings', JSON.stringify(appSettings));
+        scheduleCloudSync();
+    }
+
+    async function bankCall(action, payload = {}) {
+        const { data: { session } } = await window._sb.auth.getSession();
+        if (!session || !session.access_token) throw new Error('connectez-vous à votre compte FinancePRO');
+        let res;
+        try {
+            res = await fetch(bankFnUrl(), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token, apikey: SUPABASE_ANON },
+                body: JSON.stringify({ action, ...payload })
+            });
+        } catch (e) { throw new Error('serveur bancaire injoignable (hors-ligne, ou fonction « bank » pas encore déployée)'); }
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            const msg = res.status === 404 && !data.error ? 'la fonction « bank » n\'est pas déployée sur Supabase' : (data.error || data.message || ('erreur ' + res.status));
+            const err = new Error(msg); err.status = res.status; throw err;
+        }
+        return data;
+    }
+
+    /** « CARTE X1234 12/10 CARREFOUR MARKET » → « Carrefour Market » */
+    function cleanBankLabel(s) {
+        const raw = String(s || '').replace(/\s+/g, ' ').trim();
+        let t = raw.replace(/^(PAIEMENT PAR CARTE|CARTE|CB|PRLV SEPA|PRLV|PRELEVEMENT( SEPA)?|VIR(EMENT)?( SEPA)?( INST(ANTANE)?)?( RECU| EMIS)?( DE| VERS| A)?|RETRAIT( DAB| GAB)?|AVOIR)\b[\s:.-]*/i, '');
+        t = t.replace(/\bX\d{4}\b/gi, '').replace(/\b\d{2}\/\d{2}(\/\d{2,4})?\b/g, '').replace(/\b\d{6,}\b/g, '').replace(/\s+/g, ' ').trim();
+        if (!t) t = raw;
+        if (t === t.toUpperCase()) t = t.toLowerCase().replace(/(^|[\s'’(\-])(\p{L})/gu, (m, a, c) => a + c.toUpperCase());
+        return t.slice(0, 60) || 'Opération bancaire';
+    }
+
+    function bankCategorize(x) {
+        const rawLabel = [x.label, x.counterparty].filter(Boolean).join(' ');
+        const desc = cleanBankLabel(x.label || x.counterparty);
+        const rule = matchCategoryRule(rawLabel) || matchCategoryRule(desc);
+        let categorie = rule ? rule.categorie : (x.amount > 0 ? 'Entrée' : 'Autres');
+        if (categorie === 'Entrée' && x.amount < 0) categorie = 'Autres';
+        return { categorie, desc: (rule && rule.desc) || desc };
+    }
+
+    /** Livrets et placements : on suit leur solde dans Patrimoine plutôt que leurs opérations */
+    function bankDefaultMode(a) {
+        const n = normTxt((a.name || '') + ' ' + (a.product || ''));
+        if (/livret|ldd|lep|pel|cel|epargne|assurance|pea|titres/.test(n)) {
+            const p = patrimoine.find(p => normTxt(p.nom).split(/\s+/).some(w => w.length > 3 && n.includes(w)));
+            return p ? 'bal:' + p.id : 'ignore';
+        }
+        return 'tx';
+    }
+
+    async function bankSync({ auto = false } = {}) {
+        if (!bankAvailable() || !bankLinked() || bankSyncing) return null;
+        const b = appSettings.bank;
+        if (bankExpired()) { if (!auto) showToast('Accès bancaire expiré : renouvelez-le dans Réglages → Banque'); renderBankUI(); return null; }
+        bankSyncing = true; renderBankUI();
+        let added = 0, matched = 0, balances = 0;
+        const errors = [];
+        try {
+            const known = new Set(appSettings.deletedTxIds || []); // une opération supprimée ne revient pas
+            transactions.forEach(t => { known.add(t.id); if (t.bankRef) known.add(t.bankRef); });
+            const since = b.since || firstOfMonthISO();
+            for (const acc of b.accounts) {
+                const mode = acc.mode || 'tx';
+                try {
+                    if (mode === 'tx') {
+                        // Recouvrement de 7 jours : les banques comptabilisent parfois avec retard
+                        let from = acc.lastBooked ? toISODateLocal(new Date(fromISODateLocal(acc.lastBooked).getTime() - 7 * 864e5)) : since;
+                        if (from < since) from = since;
+                        const res = await bankCall('transactions', { account_uid: acc.uid, date_from: from });
+                        const list = (res.transactions || [])
+                            .filter(x => x.status === 'BOOK' && x.date && x.amount)
+                            .sort((p, q) => p.date.localeCompare(q.date));
+                        for (const x of list) {
+                            if (!acc.lastBooked || x.date > acc.lastBooked) acc.lastBooked = x.date;
+                            if (x.date < since) continue;
+                            const id = 'bank-' + (acc.key || String(acc.uid).slice(0, 8)) + '-' + x.id;
+                            if (known.has(id)) continue;
+                            known.add(id);
+                            const d = fromISODateLocal(x.date);
+                            // Déjà saisie à la main (ou récurrente) : même montant à ±3 jours → on la rattache
+                            const twin = transactions.find(t => !t.bankRef && !t.bank && Math.abs(t.montant - x.amount) < 0.005 && Math.abs(t.date - d) <= 3 * 864e5);
+                            if (twin) { twin.bankRef = id; twin.updatedAt = Date.now(); matched++; continue; }
+                            const { categorie, desc } = bankCategorize(x);
+                            insertTransaction({ id, date: d, categorie, desc, montant: x.amount, compteId: null, bank: true });
+                            added++;
+                        }
+                    } else if (mode.startsWith('bal:')) {
+                        const compte = patrimoine.find(p => p.id === Number(mode.slice(4)));
+                        if (!compte) continue;
+                        const res = await bankCall('balances', { account_uid: acc.uid });
+                        if (res.balance && typeof res.balance.amount === 'number') {
+                            const v = Math.round(res.balance.amount * 100) / 100;
+                            if (v !== compte.solde) { compte.solde = v; balances++; }
+                        }
+                    }
+                } catch (e) { errors.push(e); }
+            }
+            b.lastSync = Date.now();
+            b.lastError = errors.length ? errors[0].message : null;
+            transactions.sort((p, q) => q.date - p.date);
+            if (balances) stampCurrentMonthPatrimoine();
+            saveBankSettings();
+            saveToLocalStorage();
+            if (added || matched || balances) { initializeMonthSelector(); refreshAllViews(); }
+            const parts = [];
+            if (added) parts.push(`${added} opération${added > 1 ? 's' : ''} importée${added > 1 ? 's' : ''}`);
+            if (matched) parts.push(`${matched} déjà saisie${matched > 1 ? 's' : ''}`);
+            if (balances) parts.push(`${balances} solde${balances > 1 ? 's' : ''} mis à jour`);
+            if (errors.length) showToast('Banque : ' + errors[0].message, { duration: 6000 });
+            else if (parts.length) showToast('Banque · ' + parts.join(', '));
+            else if (!auto) showToast('Banque à jour');
+            return { added, matched, balances, errors: errors.length };
+        } finally {
+            bankSyncing = false;
+            renderBankUI();
+        }
+    }
+
+    async function bankLoadAspsps(force) {
+        if ((bankAspspList && !force) || bankAspspLoading) return;
+        bankAspspLoading = true; bankAspspError = null; renderBankSettings();
+        try { bankAspspList = (await bankCall('aspsps', { country: 'FR', query: 'Crédit Agricole' })).aspsps || []; }
+        catch (e) { bankAspspError = e.message; }
+        finally { bankAspspLoading = false; renderBankSettings(); }
+    }
+
+    /** Relier (ou renouveler) : redirection vers la banque, qui revient sur l'app avec ?code&state */
+    async function bankConnect(renew) {
+        const b = appSettings.bank || {};
+        let aspsp;
+        if (renew && b.aspsp) aspsp = b.aspsp;
+        else {
+            const name = document.getElementById('bank-aspsp')?.value;
+            const a = (bankAspspList || []).find(x => x.name === name);
+            if (!a) { alert('Choisissez votre caisse régionale'); return; }
+            aspsp = { name: a.name, country: a.country || 'FR', max_days: a.max_days || 90 };
+        }
+        const since = b.since || document.getElementById('bank-since')?.value || firstOfMonthISO();
+        const state = 'fpbank-' + newId().replace(/-/g, '');
+        appSettings.bank = { ...b, pending: { state, aspsp, since, at: Date.now() } };
+        saveBankSettings();
+        const btn = document.getElementById(renew ? 'bank-renew-btn' : 'bank-connect-btn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Redirection vers la banque…'; }
+        try {
+            const { url } = await bankCall('start', { aspsp: { name: aspsp.name, country: aspsp.country || 'FR' }, state, redirect_url: bankRedirectUrl(), max_days: aspsp.max_days || 90 });
+            // Sur iPhone, le retour de la banque peut s'ouvrir dans Safari plutôt que dans l'app :
+            // la demande en cours doit déjà être dans le cloud pour y être reconnue.
+            clearTimeout(window._cloudSyncTimer);
+            if (typeof window.saveToCloud === 'function') await window.saveToCloud();
+            location.href = url;
+        } catch (e) {
+            alert('Connexion bancaire impossible : ' + e.message);
+            renderBankUI();
+        }
+    }
+
+    async function bankHandleCallback() {
+        let cb = null;
+        try { cb = JSON.parse(localStorage.getItem('finance-bank-callback') || 'null'); } catch (e) {}
+        if (!cb) return false;
+        localStorage.removeItem('finance-bank-callback');
+        if (Date.now() - (cb.at || 0) > 30 * 60 * 1000) return false; // code périmé
+        const b = appSettings.bank || {};
+        const pending = b.pending;
+        if (!pending || pending.state !== cb.state) {
+            showToast('Retour de la banque non reconnu : recommencez depuis Réglages → Banque', { duration: 6000 });
+            return true;
+        }
+        if (cb.error || !cb.code) {
+            delete b.pending; saveBankSettings(); renderBankUI();
+            showToast(cb.error === 'access_denied' ? 'Connexion bancaire annulée' : 'Connexion bancaire refusée : ' + (cb.error_description || cb.error || 'code absent'), { duration: 6000 });
+            return true;
+        }
+        try {
+            const s = await bankCall('session', { code: cb.code });
+            const prev = new Map((b.accounts || []).map(a => [a.key || a.uid, a]));
+            const oldSession = b.session_id;
+            appSettings.bank = {
+                aspsp: { ...pending.aspsp, ...(s.aspsp || {}), max_days: pending.aspsp.max_days },
+                session_id: s.session_id,
+                valid_until: s.valid_until,
+                since: b.since || pending.since,
+                accounts: (s.accounts || []).map(a => {
+                    const old = prev.get(a.key || a.uid);
+                    return { ...a, mode: old ? old.mode : bankDefaultMode(a), lastBooked: old ? old.lastBooked : null };
+                }),
+                linkedAt: Date.now(),
+                lastSync: null
+            };
+            saveBankSettings();
+            if (oldSession && oldSession !== s.session_id) bankCall('delete_session', { session_id: oldSession }).catch(() => {});
+            const isIOSBrowser = /iPhone|iPad|iPod/.test(navigator.userAgent) && !navigator.standalone;
+            showToast(isIOSBrowser ? 'Banque reliée ✓ Vous pouvez revenir dans l\'app FinancePRO.' : 'Banque reliée ✓', { duration: 6000 });
+            renderBankUI();
+            await bankSync({ auto: true });
+        } catch (e) {
+            delete b.pending; saveBankSettings(); renderBankUI();
+            alert('Liaison bancaire impossible : ' + e.message);
+        }
+        return true;
+    }
+
+    /** Appelée après chaque chargement depuis le cloud (et au retour dans l'app) */
+    window.bankAfterCloudLoad = async function () {
+        if (!bankAvailable() || window._bankAfterBusy) return;
+        window._bankAfterBusy = true;
+        try {
+            const handled = await bankHandleCallback();
+            if (!handled && bankLinked() && !bankExpired() && Date.now() - (appSettings.bank.lastSync || 0) > BANK_AUTO_SYNC_MS) {
+                await bankSync({ auto: true });
+            }
+        } catch (e) { console.warn('Banque :', e); }
+        finally { window._bankAfterBusy = false; renderBankUI(); }
+    };
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && !window._cloudLoading) setTimeout(() => window.bankAfterCloudLoad(), 1500);
+    });
+
+    function bankSetMode(uid, value) {
+        const acc = (appSettings.bank?.accounts || []).find(a => a.uid === uid);
+        if (!acc) return;
+        acc.mode = value;
+        saveBankSettings();
+    }
+
+    async function bankUnlink() {
+        if (!confirm('Délier la banque ? Les opérations déjà importées restent dans l\'app.')) return;
+        const sid = appSettings.bank?.session_id;
+        appSettings.bank = { since: appSettings.bank?.since || null };
+        saveBankSettings();
+        renderBankUI();
+        if (sid) bankCall('delete_session', { session_id: sid }).catch(() => {});
+    }
+
+    function openBankSettings() {
+        openSettings();
+        setTimeout(() => document.getElementById('settings-bank')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+    }
+
+    function bankAgo(ts) {
+        if (!ts) return 'jamais';
+        const m = Math.round((Date.now() - ts) / 60000);
+        if (m < 1) return 'à l\'instant';
+        if (m < 60) return `il y a ${m} min`;
+        const h = Math.round(m / 60);
+        if (h < 24) return `il y a ${h} h`;
+        return `il y a ${Math.round(h / 24)} j`;
+    }
+    function bankDateFR(iso) {
+        const d = new Date(iso);
+        return isNaN(d) ? '' : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    function renderBankUI() { renderBankSettings(); renderBankStrip(); }
+
+    function renderBankStrip() {
+        const el = document.getElementById('bank-strip');
+        if (!el) return;
+        if (!bankAvailable() || !bankLinked()) { el.hidden = true; el.innerHTML = ''; return; }
+        const b = appSettings.bank, exp = bankExpired();
+        el.hidden = false;
+        el.innerHTML = `<span class="bank-dot${exp || b.lastError ? ' is-off' : ''}"></span>
+            <span class="bank-strip-text"><strong>Banque</strong> · ${exp ? 'accès expiré' : bankSyncing ? 'synchronisation…' : 'synchro ' + bankAgo(b.lastSync)}</span>
+            ${exp ? `<button class="btn btn-small" type="button" onclick="openBankSettings()">Renouveler</button>`
+                  : `<button class="btn btn-small secondary" type="button" id="bank-sync-btn" onclick="bankSync()" ${bankSyncing ? 'disabled' : ''}>Synchroniser</button>`}`;
+    }
+
+    function renderBankSettings() {
+        const el = document.getElementById('bank-settings-body');
+        if (!el) return;
+        if (!bankAvailable()) { el.innerHTML = '<div class="settings-empty">Disponible une fois connecté à votre compte (pas en mode démo ni hors-ligne).</div>'; return; }
+        const b = appSettings.bank || {};
+        if (!bankLinked()) {
+            // Étape 1 : un bouton (aucune requête tant que l'utilisateur ne le demande pas)
+            if (!bankAspspList) {
+                el.innerHTML = bankAspspLoading
+                    ? '<div class="settings-empty">Chargement des caisses régionales…</div>'
+                    : `${bankAspspError ? `<div class="bank-note is-error">Liste indisponible : ${escapeHTML(bankAspspError)}</div>` : ''}
+                       <button class="btn bank-main-btn" type="button" id="bank-start-btn" onclick="bankLoadAspsps(true)">${bankAspspError ? 'Réessayer' : 'Relier ma banque'}</button>`;
+                return;
+            }
+            // Étape 2 : caisse régionale + date de départ, puis redirection vers la banque
+            const short = n => n.replace(/^Cr[ée]dit Agricole\s*/i, '') || n;
+            const curSel = document.getElementById('bank-aspsp')?.value || b.pending?.aspsp?.name || '';
+            const curSince = document.getElementById('bank-since')?.value || b.since || firstOfMonthISO();
+            el.innerHTML = `
+                <div class="settings-row">
+                    <div><div class="settings-row-label">Caisse régionale</div><div class="settings-row-desc">Celle qui gère votre compte Crédit Agricole</div></div>
+                    <div class="settings-row-control"><select id="bank-aspsp"><option value="">Choisir…</option>${bankAspspList.map(a => `<option value="${escapeHTML(a.name)}"${curSel === a.name ? ' selected' : ''}>${escapeHTML(short(a.name))}</option>`).join('')}</select></div>
+                </div>
+                <div class="settings-row">
+                    <div><div class="settings-row-label">Importer à partir du</div><div class="settings-row-desc">Les opérations plus anciennes sont ignorées</div></div>
+                    <div class="settings-row-control"><input type="date" id="bank-since" value="${escapeHTML(curSince)}"></div>
+                </div>
+                <button class="btn bank-main-btn" type="button" id="bank-connect-btn" onclick="bankConnect()">Continuer vers la banque</button>
+                <p class="settings-help bank-foot">Vous validerez dans l'app Ma Banque, puis vous serez ramené ici.</p>`;
+            return;
+        }
+        const exp = bankExpired(), left = bankDaysLeft();
+        const modeOptions = acc => {
+            const cur = acc.mode || 'tx';
+            const opt = (v, label) => `<option value="${escapeHTML(v)}"${cur === v ? ' selected' : ''}>${escapeHTML(label)}</option>`;
+            return opt('tx', 'Opérations')
+                + patrimoine.map(p => opt('bal:' + p.id, 'Solde → ' + p.nom)).join('')
+                + opt('ignore', 'Ignorer');
+        };
+        el.innerHTML = `
+            <div class="settings-row">
+                <div><div class="settings-row-label">${escapeHTML(b.aspsp?.name || 'Banque')}</div>
+                <div class="settings-row-desc">${exp ? 'Accès expiré le ' : 'Accès valable jusqu’au '}${bankDateFR(b.valid_until)}</div></div>
+            </div>
+            ${exp ? '<div class="bank-note is-error">L\'accès a expiré : renouvelez-le pour reprendre la synchro.</div>'
+                  : left !== null && left <= 14 ? `<div class="bank-note is-warn">Expire dans ${left} jour${left > 1 ? 's' : ''} : pensez à renouveler l'accès.</div>` : ''}
+            <div class="settings-list">
+                ${b.accounts.map(acc => `
+                <div class="settings-list-row bank-acc">
+                    <div class="settings-list-main">
+                        <div class="settings-row-label">${escapeHTML(acc.name)}</div>
+                        <div class="settings-row-desc">${escapeHTML(acc.iban || acc.product || '')}</div>
+                    </div>
+                    <select class="bank-mode" aria-label="Usage du compte ${escapeHTML(acc.name)}" onchange="bankSetMode(${jsArg(acc.uid)}, this.value)">${modeOptions(acc)}</select>
+                </div>`).join('')}
+            </div>
+            <div class="settings-row">
+                <div><div class="settings-row-label">Dernière synchro</div>
+                <div class="settings-row-desc">${bankSyncing ? 'En cours…' : escapeHTML(bankAgo(b.lastSync))}${b.lastError ? ' · ' + escapeHTML(b.lastError) : ''} · automatique toutes les 6 h à l'ouverture</div></div>
+            </div>
+            <div class="bank-actions">
+                <button class="btn btn-small" type="button" onclick="bankSync()" ${bankSyncing || exp ? 'disabled' : ''}>Synchroniser</button>
+                <button class="btn btn-small secondary" type="button" id="bank-renew-btn" onclick="bankConnect(true)">Renouveler l'accès</button>
+                <button class="btn btn-small secondary bank-unlink" type="button" onclick="bankUnlink()">Délier</button>
+            </div>`;
     }
 
     // ── Catégories modifiables ───────────────────────────────────────
@@ -12012,6 +12407,20 @@ body.quick-add-open .app-toast { top: calc(16px + env(safe-area-inset-top, 0px))
 .rec-form { display: grid; grid-template-columns: 2fr 1.3fr 1fr 90px auto; gap: 8px; align-items: center; }
 .rec-form input, .rec-form select { margin-bottom: 0; }
 @media (max-width: 768px) { .rec-form { grid-template-columns: 1fr 1fr; } .rec-form input:first-child { grid-column: span 2; } .rec-form button { grid-column: span 2; } }
+.bank-strip { display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin: 0 0 14px; border-radius: 12px; background: var(--bg-secondary); font-size: 14px; }
+.bank-strip[hidden] { display: none; }
+.bank-strip-text { flex: 1; min-width: 0; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bank-strip-text strong { color: var(--text-primary); font-weight: 600; }
+.bank-dot { width: 8px; height: 8px; border-radius: 4px; background: var(--success); flex-shrink: 0; }
+.bank-dot.is-off { background: var(--warning); }
+.bank-main-btn { width: 100%; margin-top: 6px; }
+.bank-foot { margin: 10px 0 0; }
+.bank-note { font-size: 13px; line-height: 1.4; padding: 8px 10px; border-radius: 10px; margin: 4px 0 10px; background: var(--bg-tertiary); }
+.bank-note.is-warn { color: var(--warning); }
+.bank-note.is-error { color: var(--danger); }
+.bank-acc .bank-mode { max-width: 48%; margin-bottom: 0; }
+.bank-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.bank-actions .bank-unlink { color: var(--danger); }
 .rules-defaults summary { cursor: pointer; font-size: 15px; color: var(--accent); padding: 8px 0; }
 .shortcuts-grid { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; align-items: center; font-size: 15px; }
 .shortcuts-grid kbd { display: inline-block; min-width: 24px; text-align: center; padding: 2px 6px; border-radius: 6px; background: var(--bg-tertiary); font-family: inherit; font-size: 13px; }
