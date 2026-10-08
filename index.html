@@ -2356,11 +2356,12 @@ body.pwa-mode .quick-add-inner, body.pwa-mode .more-menu-inner { max-height: cal
 body.pwa-mode .block-detail-modal, body.pwa-mode #edit-tx-modal, body.pwa-mode .app-modal { padding-top: calc(16px + env(safe-area-inset-top, 0px)) !important; }
 
 /* ===== Barre d'onglets mobile « Liquid Glass » : capsule flottante translucide ===== */
+:root { --tabbar-bottom: max(8px, calc(env(safe-area-inset-bottom, 0px) - 14px)); --tabbar-h: 62px; }
 @media (max-width: 768px) {
     html[data-theme] body nav {
-        left: 12px !important; right: 12px !important; bottom: calc(env(safe-area-inset-bottom, 0px) + 6px) !important;
+        left: 12px !important; right: 12px !important; bottom: var(--tabbar-bottom) !important;
         width: auto !important; box-sizing: border-box;
-        height: 64px !important; padding: 0 6px !important; border-radius: 32px;
+        height: var(--tabbar-h) !important; padding: 0 6px !important; border-radius: 32px;
         background: rgba(250, 250, 252, 0.62) !important;
         border: 0.5px solid rgba(255, 255, 255, 0.7) !important;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.75), inset 0 -1px 0 rgba(0, 0, 0, 0.04);
@@ -2372,15 +2373,15 @@ body.pwa-mode .block-detail-modal, body.pwa-mode #edit-tx-modal, body.pwa-mode .
         border-color: rgba(255, 255, 255, 0.14) !important;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.10);
     }
-    html[data-theme] body nav .nav-item { height: 52px; margin: 0 1px; border-radius: 26px; padding: 4px 0 2px !important; transition: background .15s; }
+    html[data-theme] body nav .nav-item { height: 50px; margin: 0 1px; border-radius: 26px; padding: 4px 0 2px !important; transition: background .15s; }
     html[data-theme] body nav .nav-item.active { background: rgba(0, 0, 0, 0.07) !important; }
     html[data-theme="dark"] body nav .nav-item.active { background: rgba(255, 255, 255, 0.13) !important; }
-    .tab-content { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)) !important; }
-    #fab-add { bottom: calc(env(safe-area-inset-bottom, 0px) + 82px) !important; right: 18px; }
-    body.demo-mode #fab-add { bottom: calc(env(safe-area-inset-bottom, 0px) + 128px) !important; }
-    #demo-banner { left: 12px !important; right: 12px !important; width: auto !important; bottom: calc(env(safe-area-inset-bottom, 0px) + 78px) !important;
+    .tab-content { padding-bottom: calc(var(--tabbar-bottom) + var(--tabbar-h) + 40px) !important; }
+    #fab-add { bottom: calc(var(--tabbar-bottom) + var(--tabbar-h) + 14px) !important; right: 18px; }
+    body.demo-mode #fab-add { bottom: calc(var(--tabbar-bottom) + var(--tabbar-h) + 62px) !important; }
+    #demo-banner { left: 12px !important; right: 12px !important; width: auto !important; bottom: calc(var(--tabbar-bottom) + var(--tabbar-h) + 8px) !important;
         border-radius: 14px; border: 0.5px solid var(--border) !important; }
-    .app-toast { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+    .app-toast { bottom: calc(var(--tabbar-bottom) + var(--tabbar-h) + 84px); }
 }
 
 /* ── Plus d'effets coûteux ── */
