@@ -24,9 +24,7 @@ Ces étapes se font une seule fois et prennent environ 15 minutes.
 Ouvre le tableau de bord du projet (https://supabase.com/dashboard/project/bgzstllxojzdfjqktwyl).
 
 1. **Ton identifiant** : *Authentication → Users*, copie l'**UID** de ton compte.
-2. **La fonction** : *Edge Functions → Deploy a new function → Via Editor*.
-   - Nomme-la `bank`.
-   - Remplace le code par celui de [`index.ts`](./index.ts), puis clique **Deploy function**.
+2. **La fonction** `bank` est déjà déployée. Pour la redéployer à la main : *Edge Functions → Deploy a new function → Via Editor*, nomme-la `bank`, colle le code de [`index.ts`](./index.ts), puis clique **Deploy function**.
 3. **Les secrets** : *Edge Functions → Secrets*, ajoute :
 
 | Nom | Valeur |
@@ -36,6 +34,8 @@ Ouvre le tableau de bord du projet (https://supabase.com/dashboard/project/bgzst
 | `ALLOWED_USER_IDS` | ton UID Supabase (plusieurs possibles, séparés par des virgules) |
 
 `SUPABASE_URL` et `SUPABASE_ANON_KEY` sont fournis automatiquement.
+
+La version déployée contient déjà l'identifiant de l'application et ton UID en valeurs par défaut (`DEFAULT_APP_ID`, `DEFAULT_USER_IDS` en haut de `index.ts`, laissés vides dans ce dépôt public). Seul `ENABLE_BANKING_PRIVATE_KEY` est alors obligatoire.
 
 `ALLOWED_ORIGINS` est optionnel. Par défaut il vaut `https://lo30cha.github.io` ; ajoute d'autres adresses, séparées par des virgules, si l'app est servie ailleurs.
 
@@ -58,12 +58,21 @@ supabase secrets set --project-ref bgzstllxojzdfjqktwyl ENABLE_BANKING_PRIVATE_K
 ## Fonctionnement
 
 - **Quand la synchro a lieu** : automatiquement à l'ouverture de l'app si la dernière date de plus de 6 h. La DSP2 limite à environ 4 accès par jour sans action de ta part. Le bouton **Synchroniser** (onglet Transactions) la lance à la demande.
-- **Ce qui est importé** :
-  - seules les opérations comptabilisées (pas les paiements « en cours ») ;
-  - la catégorie suit les règles d'import bancaire, puis tes anciennes transactions au même libellé.
-- **Pas de doublons** :
-  - une opération déjà saisie à la main (même montant, à ±3 jours) est rattachée au lieu d'être ajoutée ;
-  - une opération importée puis supprimée ne revient pas.
-- **Livrets et épargne** : par défaut, l'app ne prend pas leurs opérations. Elle met à jour le solde du compte Patrimoine correspondant ; tu choisis l'usage de chaque compte dans *Réglages → Banque*.
+- **Rien n'est ajouté sans ton accord.** À l'ouverture, la fenêtre **Opérations de la banque** s'ouvre d'elle-même s'il y a quelque chose à classer.
+- **Seuls les jours vides sont proposés** : du lendemain de ta dernière saisie dans FinancePRO jusqu'à aujourd'hui (date de ton téléphone).
+  - Les jours que tu as déjà renseignés ne sont jamais touchés, et leurs opérations bancaires ne sont pas proposées.
+  - Les trous plus anciens sont ignorés.
+  - Un jour sans opération à la banque est simplement sauté.
+  - Les opérations du jour qui arrivent plus tard sont proposées à une ouverture suivante.
+- **Date utilisée** : la date d'opération (celle du détail dans Ma Banque). Pour une carte, c'est la date d'achat écrite dans le libellé (« CARTE X1234 05/10 … »), pas la date de comptabilisation.
+- **Ce qui est récupéré** : seules les opérations comptabilisées, pas les paiements « en cours ».
+- **Pour chaque opération**, une catégorie est suggérée (règles d'import, puis tes anciennes transactions au même libellé) :
+  - **Ajouter**, après avoir changé la catégorie si besoin ;
+  - **Ignorer** : elle ne reviendra pas ;
+  - **Tout ajouter** ;
+  - **Plus tard** : elle reste en attente, et le bandeau de l'onglet Transactions affiche « N à vérifier ».
+- **Récurrentes** : un prélèvement qui ressemble à une transaction récurrente déjà comptée (même montant, à 3 jours près) est signalé « Déjà comptée par la récurrente… ». *Tout ajouter* le laisse de côté.
+- **Pas de doublons** : une opération ajoutée ou ignorée n'est jamais reproposée. Rien n'est écrasé ; la fusion cloud se fait opération par opération.
+- **Livrets et épargne** : par défaut, l'app ne prend pas leurs opérations. Elle met à jour le solde du compte Patrimoine correspondant (c'est la seule valeur remplacée). L'usage de chaque compte se règle dans *Réglages → Banque*.
 - **Renouvellement** : l'accès dure 90 à 180 jours selon la caisse. L'app prévient 14 jours avant. *Renouveler l'accès* refait la validation Ma Banque.
-- **Délier** : supprime l'accès côté banque. Les opérations déjà importées restent dans l'app.
+- **Délier** : supprime l'accès côté banque. Les opérations déjà ajoutées restent dans l'app.

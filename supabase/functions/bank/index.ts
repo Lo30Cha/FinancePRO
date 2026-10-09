@@ -13,11 +13,16 @@
 
 const env = (k: string) => (Deno.env.get(k) || "").trim();
 
+// Valeurs non secrètes, utilisées si le secret correspondant n'est pas défini.
+// Laissées vides dans le dépôt public ; renseignées dans la version déployée.
+const DEFAULT_APP_ID = "";
+const DEFAULT_USER_IDS = "";
+
 const EB_API = () => env("ENABLE_BANKING_API") || "https://api.enablebanking.com";
 const ORIGINS = () =>
   (env("ALLOWED_ORIGINS") || "https://lo30cha.github.io")
     .split(",").map((s) => s.trim().replace(/\/+$/, "")).filter(Boolean);
-const USERS = () => env("ALLOWED_USER_IDS").split(",").map((s) => s.trim()).filter(Boolean);
+const USERS = () => (env("ALLOWED_USER_IDS") || DEFAULT_USER_IDS).split(",").map((s) => s.trim()).filter(Boolean);
 
 function cors(origin: string | null): Record<string, string> {
   const allowed = origin && ORIGINS().includes(origin) ? origin : ORIGINS()[0];
@@ -82,7 +87,7 @@ async function privateKey(): Promise<CryptoKey> {
 }
 
 async function ebJwt(): Promise<string> {
-  const appId = env("ENABLE_BANKING_APP_ID");
+  const appId = env("ENABLE_BANKING_APP_ID") || DEFAULT_APP_ID;
   if (!appId) throw new HttpError(500, "ENABLE_BANKING_APP_ID manquant");
   const now = Math.floor(Date.now() / 1000);
   const head = b64urlStr(JSON.stringify({ typ: "JWT", alg: "RS256", kid: appId }));
@@ -147,9 +152,12 @@ async function normalizeTx(t: any) {
   const label = (ri || counterparty || t.bank_transaction_code?.description || "Opération").replace(/\s+/g, " ").trim();
   const id = t.entry_reference || t.transaction_id ||
     await sha([date, signed.toFixed(2), label, t.value_date || ""].join("|"));
+  // Toutes les dates connues : la banque n'affiche pas toujours la même (opération, comptabilisation, valeur)
+  const dates = [...new Set([t.transaction_date, t.booking_date, t.value_date].filter(Boolean))];
   return {
     id: String(id),
     date,
+    dates,
     amount: Math.round(signed * 100) / 100,
     currency: t?.transaction_amount?.currency || "EUR",
     label,
@@ -165,7 +173,7 @@ async function actAspsps(p: any) {
   const psu = p.psu_type === "business" ? "business" : "personal";
   const data = await eb("GET", `/aspsps?country=${encodeURIComponent(p.country || "FR")}&psu_type=${psu}`);
   const q = String(p.query ?? "Crédit Agricole").toLowerCase();
-  const strip = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const strip = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const list = (data?.aspsps || [])
     .filter((a: any) => !q || strip(a.name).includes(strip(q)))
     .map((a: any) => ({

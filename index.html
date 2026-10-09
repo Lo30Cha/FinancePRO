@@ -2980,6 +2980,19 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
 </div>
 
 <!-- MODAL: Mode d'import (fusionner / remplacer) -->
+<!-- MODAL: opérations bancaires à vérifier -->
+<div id="bank-review-modal" class="app-modal" style="display:none;" onclick="if(event.target===this)closeBankReview()">
+    <div class="app-modal-inner bank-review" role="dialog" aria-labelledby="bank-review-title">
+        <div class="bank-review-head">
+            <h2 class="app-modal-title" id="bank-review-title">Opérations de la banque</h2>
+            <button class="icon-btn" type="button" aria-label="Fermer" onclick="closeBankReview()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="18" y1="6" x2="6" y2="18"></line></svg></button>
+        </div>
+        <p class="app-modal-text" id="bank-review-sub"></p>
+        <div id="bank-review-list" class="bank-review-list"></div>
+        <div id="bank-review-foot" class="bank-review-foot"></div>
+    </div>
+</div>
+
 <div id="import-mode-modal" class="app-modal" style="display:none;">
     <div class="app-modal-inner">
         <h2 class="app-modal-title">Importer le fichier</h2>
@@ -11208,23 +11221,88 @@ window.closeHelp = function() {
         return 'tx';
     }
 
+    // ── Opérations « à vérifier » ───────────────────────────────────
+    // L'app ne propose que les jours sans saisie : du lendemain de la dernière saisie
+    // manuelle jusqu'à aujourd'hui. Les jours déjà renseignés ne sont jamais touchés.
+    // Rien n'entre dans les budgets sans validation.
+    function bankInbox() {
+        const b = appSettings.bank || {};
+        if (!Array.isArray(b.inbox)) b.inbox = [];
+        return b.inbox;
+    }
+    /** Retire ce qui a été traité ailleurs (autre appareil) */
+    function bankInboxClean() {
+        const b = appSettings.bank;
+        if (!b || !Array.isArray(b.inbox)) return;
+        const tomb = new Set(appSettings.deletedTxIds || []);
+        const ids = new Set(transactions.map(t => t.id));
+        b.inbox = b.inbox.filter(it => it.status === 'new' && !ids.has(it.id) && !tomb.has(it.id));
+    }
+    function bankPendingCount() { bankInboxClean(); return bankInbox().length; }
+
+    /** Dernier jour renseigné à la main (hors opérations de la banque, récurrentes et dates futures) */
+    function bankLastFilledDay() {
+        const today = toISODateLocal(new Date());
+        let last = null;
+        transactions.forEach(t => {
+            if (t.bank || String(t.id).startsWith('rec-')) return;
+            const d = toISODateLocal(t.date);
+            if (d <= today && (!last || d > last)) last = d;
+        });
+        return last;
+    }
+
+    /** Date d'achat écrite dans le libellé (« CARTE X1234 05/10 … »), si plausible */
+    function bankLabelDate(raw, ref) {
+        const m = String(raw || '').match(/\b(\d{2})\/(\d{2})(?:\/(\d{2,4}))?\b/);
+        if (!m || !ref) return null;
+        const dd = +m[1], mm = +m[2];
+        if (dd < 1 || dd > 31 || mm < 1 || mm > 12) return null;
+        let y = m[3] ? (m[3].length === 2 ? 2000 + +m[3] : +m[3]) : +ref.slice(0, 4);
+        if (!m[3] && mm > +ref.slice(5, 7)) y--;
+        const iso = `${y}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+        const gap = (fromISODateLocal(ref) - fromISODateLocal(iso)) / 864e5;
+        return gap >= 0 && gap <= 10 ? iso : null;
+    }
+
+    /** Une opération de la banque, datée du jour de l'opération (pas de la comptabilisation) */
+    function bankMakeItem(x, id) {
+        const day = bankLabelDate(x.label, x.date) || (x.dates && x.dates[0]) || x.date;
+        const { categorie, desc } = bankCategorize(x);
+        // Déjà comptée par une transaction récurrente (loyer, abonnement…) ?
+        const d0 = fromISODateLocal(day).getTime();
+        const rec = transactions.find(t => String(t.id).startsWith('rec-') && Math.abs(t.montant - x.amount) < 0.005 && Math.abs(t.date - d0) <= 3 * 864e5);
+        return {
+            id, day, amount: x.amount, status: 'new',
+            label: cleanBankLabel(x.label || x.counterparty), raw: String(x.label || '').slice(0, 140),
+            categorie, desc, recId: rec ? rec.id : null, at: Date.now()
+        };
+    }
+
     async function bankSync({ auto = false } = {}) {
         if (!bankAvailable() || !bankLinked() || bankSyncing) return null;
         const b = appSettings.bank;
         if (bankExpired()) { if (!auto) showToast('Accès bancaire expiré : renouvelez-le dans Réglages → Banque'); renderBankUI(); return null; }
         bankSyncing = true; renderBankUI();
-        let added = 0, matched = 0, balances = 0;
+        let pending = 0, balances = 0;
         const errors = [];
         try {
-            const known = new Set(appSettings.deletedTxIds || []); // une opération supprimée ne revient pas
-            transactions.forEach(t => { known.add(t.id); if (t.bankRef) known.add(t.bankRef); });
+            bankInboxClean();
+            const inbox = bankInbox();
+            const known = new Set(appSettings.deletedTxIds || []); // une opération ignorée ou supprimée ne revient pas
+            transactions.forEach(t => known.add(t.id));
+            inbox.forEach(it => known.add(it.id));
             const since = b.since || firstOfMonthISO();
+            const last = bankLastFilledDay();
+            // Premier jour à remplir : le lendemain de la dernière saisie (jamais avant la date de liaison)
+            let gapStart = last ? toISODateLocal(new Date(fromISODateLocal(last).getTime() + 864e5)) : since;
+            if (gapStart < since) gapStart = since;
             for (const acc of b.accounts) {
                 const mode = acc.mode || 'tx';
                 try {
                     if (mode === 'tx') {
-                        // Recouvrement de 7 jours : les banques comptabilisent parfois avec retard
-                        let from = acc.lastBooked ? toISODateLocal(new Date(fromISODateLocal(acc.lastBooked).getTime() - 7 * 864e5)) : since;
+                        // Marge de 7 jours : une carte peut être comptabilisée quelques jours après l'achat
+                        let from = toISODateLocal(new Date(fromISODateLocal(gapStart).getTime() - 7 * 864e5));
                         if (from < since) from = since;
                         const res = await bankCall('transactions', { account_uid: acc.uid, date_from: from });
                         const list = (res.transactions || [])
@@ -11232,17 +11310,13 @@ window.closeHelp = function() {
                             .sort((p, q) => p.date.localeCompare(q.date));
                         for (const x of list) {
                             if (!acc.lastBooked || x.date > acc.lastBooked) acc.lastBooked = x.date;
-                            if (x.date < since) continue;
                             const id = 'bank-' + (acc.key || String(acc.uid).slice(0, 8)) + '-' + x.id;
                             if (known.has(id)) continue;
+                            const item = bankMakeItem(x, id);
+                            if (item.day < gapStart) continue; // jour déjà renseigné : on n'y touche pas
                             known.add(id);
-                            const d = fromISODateLocal(x.date);
-                            // Déjà saisie à la main (ou récurrente) : même montant à ±3 jours → on la rattache
-                            const twin = transactions.find(t => !t.bankRef && !t.bank && Math.abs(t.montant - x.amount) < 0.005 && Math.abs(t.date - d) <= 3 * 864e5);
-                            if (twin) { twin.bankRef = id; twin.updatedAt = Date.now(); matched++; continue; }
-                            const { categorie, desc } = bankCategorize(x);
-                            insertTransaction({ id, date: d, categorie, desc, montant: x.amount, compteId: null, bank: true });
-                            added++;
+                            inbox.push(item);
+                            pending++;
                         }
                     } else if (mode.startsWith('bal:')) {
                         const compte = patrimoine.find(p => p.id === Number(mode.slice(4)));
@@ -11257,23 +11331,111 @@ window.closeHelp = function() {
             }
             b.lastSync = Date.now();
             b.lastError = errors.length ? errors[0].message : null;
-            transactions.sort((p, q) => q.date - p.date);
-            if (balances) stampCurrentMonthPatrimoine();
+            if (balances) { stampCurrentMonthPatrimoine(); saveToLocalStorage(); refreshAllViews(); }
             saveBankSettings();
-            saveToLocalStorage();
-            if (added || matched || balances) { initializeMonthSelector(); refreshAllViews(); }
             const parts = [];
-            if (added) parts.push(`${added} opération${added > 1 ? 's' : ''} importée${added > 1 ? 's' : ''}`);
-            if (matched) parts.push(`${matched} déjà saisie${matched > 1 ? 's' : ''}`);
+            if (pending) parts.push(`${pending} à vérifier`);
             if (balances) parts.push(`${balances} solde${balances > 1 ? 's' : ''} mis à jour`);
             if (errors.length) showToast('Banque : ' + errors[0].message, { duration: 6000 });
-            else if (parts.length) showToast('Banque · ' + parts.join(', '));
-            else if (!auto) showToast('Banque à jour');
-            return { added, matched, balances, errors: errors.length };
+            else if (parts.length && !(auto && pending)) showToast('Banque · ' + parts.join(', '), pending ? { actionLabel: 'Vérifier', onAction: openBankReview } : {});
+            else if (!auto && !parts.length) showToast('Banque à jour : aucun jour à compléter');
+            return { pending, balances, errors: errors.length };
         } finally {
             bankSyncing = false;
             renderBankUI();
+            if (document.getElementById('bank-review-modal')?.style.display === 'flex') renderBankReview();
         }
+    }
+
+    // ── Fenêtre de vérification ──
+    function bankInboxSave(txChanged) {
+        bankInboxClean();
+        saveBankSettings();
+        if (txChanged) { transactions.sort((p, q) => q.date - p.date); saveToLocalStorage(); initializeMonthSelector(); refreshAllViews(); }
+        renderBankReview();
+        renderBankUI();
+    }
+    function bankItem(id) { return bankInbox().find(it => it.id === id); }
+    function bankSetItemCat(id, v) { const it = bankItem(id); if (it) { it.categorie = v; saveBankSettings(); } }
+    function bankAcceptItem(id, batch) {
+        const it = bankItem(id);
+        if (!it) return;
+        const categorie = appSettings.categories.includes(it.categorie) ? it.categorie : (it.amount > 0 ? 'Entrée' : 'Autres');
+        insertTransaction({ id: it.id, date: fromISODateLocal(it.day), categorie, desc: it.desc || it.label, montant: it.amount, compteId: null, bank: true });
+        appSettings.bank.inbox = bankInbox().filter(x => x.id !== id);
+        if (!batch) bankInboxSave(true);
+    }
+    /** « Tout ajouter » laisse de côté ce qui ressemble à une récurrente déjà comptée */
+    function bankAcceptAll() {
+        const ids = bankInbox().filter(it => !it.recId).map(it => it.id);
+        ids.forEach(id => bankAcceptItem(id, true));
+        bankInboxSave(true);
+        showToast(`${ids.length} opération${ids.length > 1 ? 's' : ''} ajoutée${ids.length > 1 ? 's' : ''}`);
+    }
+    function bankIgnoreItem(id) {
+        rememberDeletedIds([id]);
+        appSettings.bank.inbox = bankInbox().filter(x => x.id !== id);
+        localStorage.setItem('finance-settings', JSON.stringify(appSettings));
+        bankInboxSave(false);
+    }
+    function openBankReview() {
+        const m = document.getElementById('bank-review-modal');
+        if (!m) return;
+        window._bankReviewShown = true;
+        renderBankReview();
+        m.style.display = 'flex';
+    }
+    function closeBankReview() {
+        const m = document.getElementById('bank-review-modal');
+        if (m) m.style.display = 'none';
+        renderBankUI();
+    }
+    function bankDayLabel(iso) {
+        const today = toISODateLocal(new Date());
+        const yest = toISODateLocal(new Date(Date.now() - 864e5));
+        if (iso === today) return 'Aujourd’hui';
+        if (iso === yest) return 'Hier';
+        const s = fromISODateLocal(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+        return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+    function renderBankReview() {
+        const list = document.getElementById('bank-review-list');
+        if (!list) return;
+        bankInboxClean();
+        const items = bankInbox();
+        const n = items.length, nAll = items.filter(it => !it.recId).length;
+        const last = bankLastFilledDay();
+        const sub = document.getElementById('bank-review-sub');
+        if (sub) sub.textContent = n
+            ? `${last ? `Depuis votre dernière saisie (${bankDayLabel(last).toLowerCase()}) : ` : ''}${n} opération${n > 1 ? 's' : ''} à classer. Rien n'est ajouté sans votre accord.`
+            : 'Tous les jours sont à jour.';
+        const foot = document.getElementById('bank-review-foot');
+        if (foot) foot.innerHTML = n
+            ? `${nAll ? `<button class="btn" type="button" onclick="bankAcceptAll()">Tout ajouter (${nAll})</button>` : ''}<button class="btn secondary" type="button" onclick="closeBankReview()">Plus tard</button>`
+            : `<button class="btn" type="button" onclick="closeBankReview()">Terminé</button>`;
+        const byDay = new Map();
+        items.forEach(it => { if (!byDay.has(it.day)) byDay.set(it.day, []); byDay.get(it.day).push(it); });
+        const days = [...byDay.keys()].sort().reverse();
+        const catOpts = cur => appSettings.categories.map(c => `<option value="${escapeHTML(c)}"${c === cur ? ' selected' : ''}>${escapeHTML(c)}</option>`).join('');
+        const amt = v => `<span class="brv-amt${v > 0 ? ' is-in' : ''}">${fmtEUR(v, { sign: true })}</span>`;
+        list.innerHTML = days.map(day => {
+            const its = byDay.get(day);
+            return `<div class="brv-day">
+                <div class="brv-day-head"><span>${escapeHTML(bankDayLabel(day))}</span><span class="brv-day-count">${its.length} opération${its.length > 1 ? 's' : ''}</span></div>
+                ${its.map(it => {
+                    const rec = it.recId ? transactions.find(t => t.id === it.recId) : null;
+                    return `<div class="brv-row"><div class="brv-main">
+                        <div class="brv-top"><div class="brv-label" title="${escapeHTML(it.raw)}">${escapeHTML(it.label)}</div>${amt(it.amount)}</div>
+                        ${rec ? `<div class="brv-sub is-warn">Déjà comptée par la récurrente « ${escapeHTML(rec.desc)} » du ${escapeHTML(rec.date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }))} : à ignorer sauf erreur</div>` : ''}
+                        <div class="brv-actions">
+                            <select class="brv-cat" aria-label="Catégorie" onchange="bankSetItemCat(${jsArg(it.id)}, this.value)">${catOpts(it.categorie)}</select>
+                            <button class="btn btn-small" type="button" onclick="bankAcceptItem(${jsArg(it.id)})">Ajouter</button>
+                            <button class="btn btn-small secondary" type="button" onclick="bankIgnoreItem(${jsArg(it.id)})">Ignorer</button>
+                        </div>
+                    </div></div>`;
+                }).join('')}
+            </div>`;
+        }).join('') || '<div class="settings-empty">Rien à vérifier.</div>';
     }
 
     async function bankLoadAspsps(force) {
@@ -11344,6 +11506,7 @@ window.closeHelp = function() {
                     const old = prev.get(a.key || a.uid);
                     return { ...a, mode: old ? old.mode : bankDefaultMode(a), lastBooked: old ? old.lastBooked : null };
                 }),
+                inbox: Array.isArray(b.inbox) ? b.inbox : [],
                 linkedAt: Date.now(),
                 lastSync: null
             };
@@ -11353,6 +11516,7 @@ window.closeHelp = function() {
             showToast(isIOSBrowser ? 'Banque reliée ✓ Vous pouvez revenir dans l\'app FinancePRO.' : 'Banque reliée ✓', { duration: 6000 });
             renderBankUI();
             await bankSync({ auto: true });
+            if (bankPendingCount()) openBankReview();
         } catch (e) {
             delete b.pending; saveBankSettings(); renderBankUI();
             alert('Liaison bancaire impossible : ' + e.message);
@@ -11366,9 +11530,13 @@ window.closeHelp = function() {
         window._bankAfterBusy = true;
         try {
             const handled = await bankHandleCallback();
+            let fresh = 0;
             if (!handled && bankLinked() && !bankExpired() && Date.now() - (appSettings.bank.lastSync || 0) > BANK_AUTO_SYNC_MS) {
-                await bankSync({ auto: true });
+                const r = await bankSync({ auto: true });
+                fresh = r ? r.pending : 0;
             }
+            // Dès l'ouverture (ou quand de nouvelles opérations arrivent) : proposer de les classer
+            if (bankLinked() && bankPendingCount() && (fresh || !window._bankReviewShown)) openBankReview();
         } catch (e) { console.warn('Banque :', e); }
         finally { window._bankAfterBusy = false; renderBankUI(); }
     };
@@ -11417,11 +11585,12 @@ window.closeHelp = function() {
         const el = document.getElementById('bank-strip');
         if (!el) return;
         if (!bankAvailable() || !bankLinked()) { el.hidden = true; el.innerHTML = ''; return; }
-        const b = appSettings.bank, exp = bankExpired();
+        const b = appSettings.bank, exp = bankExpired(), n = bankPendingCount();
         el.hidden = false;
-        el.innerHTML = `<span class="bank-dot${exp || b.lastError ? ' is-off' : ''}"></span>
-            <span class="bank-strip-text"><strong>Banque</strong> · ${exp ? 'accès expiré' : bankSyncing ? 'synchronisation…' : 'synchro ' + bankAgo(b.lastSync)}</span>
+        el.innerHTML = `<span class="bank-dot${exp || b.lastError ? ' is-off' : n ? ' is-todo' : ''}"></span>
+            <span class="bank-strip-text"><strong>Banque</strong> · ${exp ? 'accès expiré' : bankSyncing ? 'synchronisation…' : n ? `${n} à vérifier` : 'synchro ' + bankAgo(b.lastSync)}</span>
             ${exp ? `<button class="btn btn-small" type="button" onclick="openBankSettings()">Renouveler</button>`
+                  : n ? `<button class="btn btn-small" type="button" id="bank-review-btn" onclick="openBankReview()">Vérifier</button>`
                   : `<button class="btn btn-small secondary" type="button" id="bank-sync-btn" onclick="bankSync()" ${bankSyncing ? 'disabled' : ''}>Synchroniser</button>`}`;
     }
 
@@ -11485,6 +11654,7 @@ window.closeHelp = function() {
                 <div><div class="settings-row-label">Dernière synchro</div>
                 <div class="settings-row-desc">${bankSyncing ? 'En cours…' : escapeHTML(bankAgo(b.lastSync))}${b.lastError ? ' · ' + escapeHTML(b.lastError) : ''} · automatique toutes les 6 h à l'ouverture</div></div>
             </div>
+            ${bankPendingCount() ? `<div class="bank-note">${bankPendingCount()} opération(s) en attente de vérification · <button class="link-btn" type="button" onclick="closeSettings(); openBankReview()">Vérifier</button></div>` : ''}
             <div class="bank-actions">
                 <button class="btn btn-small" type="button" onclick="bankSync()" ${bankSyncing || exp ? 'disabled' : ''}>Synchroniser</button>
                 <button class="btn btn-small secondary" type="button" id="bank-renew-btn" onclick="bankConnect(true)">Renouveler l'accès</button>
@@ -12413,6 +12583,28 @@ body.quick-add-open .app-toast { top: calc(16px + env(safe-area-inset-top, 0px))
 .bank-strip-text strong { color: var(--text-primary); font-weight: 600; }
 .bank-dot { width: 8px; height: 8px; border-radius: 4px; background: var(--success); flex-shrink: 0; }
 .bank-dot.is-off { background: var(--warning); }
+.bank-dot.is-todo { background: var(--save); }
+.bank-review { max-width: 520px; max-height: calc(100dvh - 32px); display: flex; flex-direction: column; }
+body.pwa-mode .bank-review { max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px)); }
+.bank-review-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bank-review-head .app-modal-title { margin-bottom: 0; }
+.bank-review .app-modal-text { margin: 4px 0 10px; font-size: 14px; }
+.bank-review-list { overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1; min-height: 0; margin: 0 -4px; padding: 0 4px; }
+.brv-day { margin-bottom: 14px; }
+.brv-day-head { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--text-secondary); padding: 6px 0; border-bottom: 0.5px solid var(--border); }
+.brv-day-head > span:first-child { font-weight: 600; color: var(--text-primary); }
+.brv-row { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+.brv-main { flex: 1; min-width: 0; }
+.brv-label { font-size: 15px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brv-sub { font-size: 13px; color: var(--text-secondary); margin-top: 2px; line-height: 1.35; }
+.brv-sub.is-warn { color: var(--warning); }
+.brv-amt { font-size: 15px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; padding-top: 1px; }
+.brv-amt.is-in { color: var(--success); }
+.brv-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.brv-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; margin-top: 8px; align-items: center; }
+.brv-actions .brv-cat { min-width: 0; width: 100%; margin-bottom: 0; padding-top: 7px; padding-bottom: 7px; }
+.bank-review-foot { display: flex; gap: 8px; padding-top: 12px; }
+.bank-review-foot .btn { flex: 1; }
 .bank-main-btn { width: 100%; margin-top: 6px; }
 .bank-foot { margin: 10px 0 0; }
 .bank-note { font-size: 13px; line-height: 1.4; padding: 8px 10px; border-radius: 10px; margin: 4px 0 10px; background: var(--bg-tertiary); }
