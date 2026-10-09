@@ -35,6 +35,8 @@ Ouvre le tableau de bord du projet (https://supabase.com/dashboard/project/bgzst
 
 `SUPABASE_URL` et `SUPABASE_ANON_KEY` sont fournis automatiquement.
 
+La version déployée contient déjà l'identifiant de l'application et ton UID en valeurs par défaut (`DEFAULT_APP_ID`, `DEFAULT_USER_IDS` en haut de `index.ts`, laissés vides dans ce dépôt public). Seul `ENABLE_BANKING_PRIVATE_KEY` est alors obligatoire.
+
 `ALLOWED_ORIGINS` est optionnel. Par défaut il vaut `https://lo30cha.github.io` ; ajoute d'autres adresses, séparées par des virgules, si l'app est servie ailleurs.
 
 Pour passer par la ligne de commande plutôt que par le tableau de bord :

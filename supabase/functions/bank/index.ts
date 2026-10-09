@@ -13,11 +13,16 @@
 
 const env = (k: string) => (Deno.env.get(k) || "").trim();
 
+// Valeurs non secrètes, utilisées si le secret correspondant n'est pas défini.
+// Laissées vides dans le dépôt public ; renseignées dans la version déployée.
+const DEFAULT_APP_ID = "";
+const DEFAULT_USER_IDS = "";
+
 const EB_API = () => env("ENABLE_BANKING_API") || "https://api.enablebanking.com";
 const ORIGINS = () =>
   (env("ALLOWED_ORIGINS") || "https://lo30cha.github.io")
     .split(",").map((s) => s.trim().replace(/\/+$/, "")).filter(Boolean);
-const USERS = () => env("ALLOWED_USER_IDS").split(",").map((s) => s.trim()).filter(Boolean);
+const USERS = () => (env("ALLOWED_USER_IDS") || DEFAULT_USER_IDS).split(",").map((s) => s.trim()).filter(Boolean);
 
 function cors(origin: string | null): Record<string, string> {
   const allowed = origin && ORIGINS().includes(origin) ? origin : ORIGINS()[0];
@@ -82,7 +87,7 @@ async function privateKey(): Promise<CryptoKey> {
 }
 
 async function ebJwt(): Promise<string> {
-  const appId = env("ENABLE_BANKING_APP_ID");
+  const appId = env("ENABLE_BANKING_APP_ID") || DEFAULT_APP_ID;
   if (!appId) throw new HttpError(500, "ENABLE_BANKING_APP_ID manquant");
   const now = Math.floor(Date.now() / 1000);
   const head = b64urlStr(JSON.stringify({ typ: "JWT", alg: "RS256", kid: appId }));
