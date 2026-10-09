@@ -56,20 +56,21 @@ supabase secrets set --project-ref bgzstllxojzdfjqktwyl ENABLE_BANKING_PRIVATE_K
 ## Fonctionnement
 
 - **Quand la synchro a lieu** : automatiquement à l'ouverture de l'app si la dernière date de plus de 6 h. La DSP2 limite à environ 4 accès par jour sans action de ta part. Le bouton **Synchroniser** (onglet Transactions) la lance à la demande.
-- **Rien n'est ajouté sans ton accord.** Les nouvelles opérations arrivent dans la fenêtre **Opérations de la banque**, qui s'ouvre d'elle-même à l'ouverture de l'app. Elles sont rangées par jour, du plus récent au plus ancien.
-- **Ce qui est récupéré** : seules les opérations comptabilisées (pas les paiements « en cours »), depuis la date choisie à la liaison.
-- **Rattachement à tes saisies** : les libellés diffèrent toujours, donc l'app compare le **montant** et le **jour**.
-  - Même montant le même jour : l'opération est rattachée à ta saisie (✓ « Votre saisie … »). Ta saisie garde son nom, sa catégorie et son montant.
-  - Pour les cartes, le jour pris en compte est celui de l'achat écrit dans le libellé (« CARTE X1234 05/10 … »), pas celui du débit.
-  - Si le rattachement est faux : **Ce n'est pas la même**.
-  - Deux opérations de 6 € le même jour pour une seule saisie : une est rattachée, l'autre est à classer.
-  - Même montant à quelques jours d'écart : rien n'est rattaché d'office, l'app propose **C'est la même**.
-- **Les autres opérations** arrivent avec une catégorie suggérée (règles d'import, puis tes anciennes transactions au même libellé). Pour chacune :
-  - **Ajouter** (après avoir changé la catégorie si besoin) ;
+- **Rien n'est ajouté sans ton accord.** À l'ouverture, la fenêtre **Opérations de la banque** s'ouvre d'elle-même s'il y a quelque chose à classer.
+- **Seuls les jours vides sont proposés** : du lendemain de ta dernière saisie dans FinancePRO jusqu'à aujourd'hui (date de ton téléphone).
+  - Les jours que tu as déjà renseignés ne sont jamais touchés, et leurs opérations bancaires ne sont pas proposées.
+  - Les trous plus anciens sont ignorés.
+  - Un jour sans opération à la banque est simplement sauté.
+  - Les opérations du jour qui arrivent plus tard sont proposées à une ouverture suivante.
+- **Date utilisée** : la date d'opération (celle du détail dans Ma Banque). Pour une carte, c'est la date d'achat écrite dans le libellé (« CARTE X1234 05/10 … »), pas la date de comptabilisation.
+- **Ce qui est récupéré** : seules les opérations comptabilisées, pas les paiements « en cours ».
+- **Pour chaque opération**, une catégorie est suggérée (règles d'import, puis tes anciennes transactions au même libellé) :
+  - **Ajouter**, après avoir changé la catégorie si besoin ;
   - **Ignorer** : elle ne reviendra pas ;
-  - ou **Tout ajouter**.
-  - **Plus tard** les garde en attente ; le bandeau de l'onglet Transactions affiche « N à vérifier ».
-- **Pas de doublons** : une opération ajoutée, rattachée ou ignorée n'est jamais reproposée. Rien n'est écrasé ; la fusion cloud se fait opération par opération.
+  - **Tout ajouter** ;
+  - **Plus tard** : elle reste en attente, et le bandeau de l'onglet Transactions affiche « N à vérifier ».
+- **Récurrentes** : un prélèvement qui ressemble à une transaction récurrente déjà comptée (même montant, à 3 jours près) est signalé « Déjà comptée par la récurrente… ». *Tout ajouter* le laisse de côté.
+- **Pas de doublons** : une opération ajoutée ou ignorée n'est jamais reproposée. Rien n'est écrasé ; la fusion cloud se fait opération par opération.
 - **Livrets et épargne** : par défaut, l'app ne prend pas leurs opérations. Elle met à jour le solde du compte Patrimoine correspondant (c'est la seule valeur remplacée). L'usage de chaque compte se règle dans *Réglages → Banque*.
 - **Renouvellement** : l'accès dure 90 à 180 jours selon la caisse. L'app prévient 14 jours avant. *Renouveler l'accès* refait la validation Ma Banque.
 - **Délier** : supprime l'accès côté banque. Les opérations déjà ajoutées restent dans l'app.
