@@ -165,7 +165,7 @@ async function actAspsps(p: any) {
   const psu = p.psu_type === "business" ? "business" : "personal";
   const data = await eb("GET", `/aspsps?country=${encodeURIComponent(p.country || "FR")}&psu_type=${psu}`);
   const q = String(p.query ?? "Crédit Agricole").toLowerCase();
-  const strip = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const strip = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const list = (data?.aspsps || [])
     .filter((a: any) => !q || strip(a.name).includes(strip(q)))
     .map((a: any) => ({
