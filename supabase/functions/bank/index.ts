@@ -147,9 +147,12 @@ async function normalizeTx(t: any) {
   const label = (ri || counterparty || t.bank_transaction_code?.description || "Opération").replace(/\s+/g, " ").trim();
   const id = t.entry_reference || t.transaction_id ||
     await sha([date, signed.toFixed(2), label, t.value_date || ""].join("|"));
+  // Toutes les dates connues : la banque n'affiche pas toujours la même (opération, comptabilisation, valeur)
+  const dates = [...new Set([t.transaction_date, t.booking_date, t.value_date].filter(Boolean))];
   return {
     id: String(id),
     date,
+    dates,
     amount: Math.round(signed * 100) / 100,
     currency: t?.transaction_amount?.currency || "EUR",
     label,

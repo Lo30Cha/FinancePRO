@@ -24,9 +24,7 @@ Ces étapes se font une seule fois et prennent environ 15 minutes.
 Ouvre le tableau de bord du projet (https://supabase.com/dashboard/project/bgzstllxojzdfjqktwyl).
 
 1. **Ton identifiant** : *Authentication → Users*, copie l'**UID** de ton compte.
-2. **La fonction** : *Edge Functions → Deploy a new function → Via Editor*.
-   - Nomme-la `bank`.
-   - Remplace le code par celui de [`index.ts`](./index.ts), puis clique **Deploy function**.
+2. **La fonction** `bank` est déjà déployée. Pour la redéployer à la main : *Edge Functions → Deploy a new function → Via Editor*, nomme-la `bank`, colle le code de [`index.ts`](./index.ts), puis clique **Deploy function**.
 3. **Les secrets** : *Edge Functions → Secrets*, ajoute :
 
 | Nom | Valeur |
@@ -58,12 +56,20 @@ supabase secrets set --project-ref bgzstllxojzdfjqktwyl ENABLE_BANKING_PRIVATE_K
 ## Fonctionnement
 
 - **Quand la synchro a lieu** : automatiquement à l'ouverture de l'app si la dernière date de plus de 6 h. La DSP2 limite à environ 4 accès par jour sans action de ta part. Le bouton **Synchroniser** (onglet Transactions) la lance à la demande.
-- **Ce qui est importé** :
-  - seules les opérations comptabilisées (pas les paiements « en cours ») ;
-  - la catégorie suit les règles d'import bancaire, puis tes anciennes transactions au même libellé.
-- **Pas de doublons** :
-  - une opération déjà saisie à la main (même montant, à ±3 jours) est rattachée au lieu d'être ajoutée ;
-  - une opération importée puis supprimée ne revient pas.
-- **Livrets et épargne** : par défaut, l'app ne prend pas leurs opérations. Elle met à jour le solde du compte Patrimoine correspondant ; tu choisis l'usage de chaque compte dans *Réglages → Banque*.
+- **Rien n'est ajouté sans ton accord.** Les nouvelles opérations arrivent dans la fenêtre **Opérations de la banque**, qui s'ouvre d'elle-même à l'ouverture de l'app. Elles sont rangées par jour, du plus récent au plus ancien.
+- **Ce qui est récupéré** : seules les opérations comptabilisées (pas les paiements « en cours »), depuis la date choisie à la liaison.
+- **Rattachement à tes saisies** : les libellés diffèrent toujours, donc l'app compare le **montant** et le **jour**.
+  - Même montant le même jour : l'opération est rattachée à ta saisie (✓ « Votre saisie … »). Ta saisie garde son nom, sa catégorie et son montant.
+  - Pour les cartes, le jour pris en compte est celui de l'achat écrit dans le libellé (« CARTE X1234 05/10 … »), pas celui du débit.
+  - Si le rattachement est faux : **Ce n'est pas la même**.
+  - Deux opérations de 6 € le même jour pour une seule saisie : une est rattachée, l'autre est à classer.
+  - Même montant à quelques jours d'écart : rien n'est rattaché d'office, l'app propose **C'est la même**.
+- **Les autres opérations** arrivent avec une catégorie suggérée (règles d'import, puis tes anciennes transactions au même libellé). Pour chacune :
+  - **Ajouter** (après avoir changé la catégorie si besoin) ;
+  - **Ignorer** : elle ne reviendra pas ;
+  - ou **Tout ajouter**.
+  - **Plus tard** les garde en attente ; le bandeau de l'onglet Transactions affiche « N à vérifier ».
+- **Pas de doublons** : une opération ajoutée, rattachée ou ignorée n'est jamais reproposée. Rien n'est écrasé ; la fusion cloud se fait opération par opération.
+- **Livrets et épargne** : par défaut, l'app ne prend pas leurs opérations. Elle met à jour le solde du compte Patrimoine correspondant (c'est la seule valeur remplacée). L'usage de chaque compte se règle dans *Réglages → Banque*.
 - **Renouvellement** : l'accès dure 90 à 180 jours selon la caisse. L'app prévient 14 jours avant. *Renouveler l'accès* refait la validation Ma Banque.
-- **Délier** : supprime l'accès côté banque. Les opérations déjà importées restent dans l'app.
+- **Délier** : supprime l'accès côté banque. Les opérations déjà ajoutées restent dans l'app.

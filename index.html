@@ -2980,6 +2980,19 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
 </div>
 
 <!-- MODAL: Mode d'import (fusionner / remplacer) -->
+<!-- MODAL: opérations bancaires à vérifier -->
+<div id="bank-review-modal" class="app-modal" style="display:none;" onclick="if(event.target===this)closeBankReview()">
+    <div class="app-modal-inner bank-review" role="dialog" aria-labelledby="bank-review-title">
+        <div class="bank-review-head">
+            <h2 class="app-modal-title" id="bank-review-title">Opérations de la banque</h2>
+            <button class="icon-btn" type="button" aria-label="Fermer" onclick="closeBankReview()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="18" y1="6" x2="6" y2="18"></line></svg></button>
+        </div>
+        <p class="app-modal-text" id="bank-review-sub"></p>
+        <div id="bank-review-list" class="bank-review-list"></div>
+        <div id="bank-review-foot" class="bank-review-foot"></div>
+    </div>
+</div>
+
 <div id="import-mode-modal" class="app-modal" style="display:none;">
     <div class="app-modal-inner">
         <h2 class="app-modal-title">Importer le fichier</h2>
@@ -11208,16 +11221,77 @@ window.closeHelp = function() {
         return 'tx';
     }
 
+    // ── Opérations « à vérifier » ───────────────────────────────────
+    // Rien n'entre dans les budgets sans validation. Une opération de la banque du même jour
+    // et du même montant qu'une saisie manuelle est rattachée à cette saisie (les libellés
+    // diffèrent toujours) ; tout le reste est proposé avec une catégorie suggérée.
+    function bankInbox() {
+        const b = appSettings.bank || {};
+        if (!Array.isArray(b.inbox)) b.inbox = [];
+        return b.inbox;
+    }
+    /** Retire ce qui a été traité ailleurs (autre appareil) ou trop ancien */
+    function bankInboxClean() {
+        const b = appSettings.bank;
+        if (!b || !Array.isArray(b.inbox)) return;
+        const tomb = new Set(appSettings.deletedTxIds || []);
+        const ids = new Set(), refs = new Map();
+        transactions.forEach(t => { ids.add(t.id); if (t.bankRef) refs.set(t.bankRef, t); });
+        const week = Date.now() - 7 * 864e5;
+        b.inbox = b.inbox.filter(it => {
+            if (it.status === 'linked') return refs.has(it.id) && (it.at || 0) > week;
+            return !ids.has(it.id) && !refs.has(it.id) && !tomb.has(it.id);
+        });
+    }
+    function bankPendingCount() { bankInboxClean(); return bankInbox().filter(it => it.status === 'new').length; }
+
+    /** Date d'achat écrite dans le libellé (« CARTE X1234 05/10 … »), si plausible */
+    function bankLabelDate(raw, ref) {
+        const m = String(raw || '').match(/\b(\d{2})\/(\d{2})(?:\/(\d{2,4}))?\b/);
+        if (!m || !ref) return null;
+        const dd = +m[1], mm = +m[2];
+        if (dd < 1 || dd > 31 || mm < 1 || mm > 12) return null;
+        let y = m[3] ? (m[3].length === 2 ? 2000 + +m[3] : +m[3]) : +ref.slice(0, 4);
+        if (!m[3] && mm > +ref.slice(5, 7)) y--;
+        const iso = `${y}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+        const gap = (fromISODateLocal(ref) - fromISODateLocal(iso)) / 864e5;
+        return gap >= 0 && gap <= 10 ? iso : null;
+    }
+
+    function bankMakeItem(x, id) {
+        const known = [...(x.dates || []), x.date].filter(Boolean);
+        const ld = bankLabelDate(x.label, x.date);
+        const day = ld || known[0];
+        const { categorie, desc } = bankCategorize(x);
+        return {
+            id, day, dates: [...new Set([day, ...known])], amount: x.amount,
+            label: cleanBankLabel(x.label || x.counterparty), raw: String(x.label || '').slice(0, 140),
+            categorie, desc, at: Date.now()
+        };
+    }
+
+    /** Saisie manuelle correspondante : même montant, le même jour (exact) ou à 4 jours près */
+    function bankFindTwin(item, exact, taken) {
+        const cands = transactions.filter(t => !t.bankRef && !t.bank && !taken.has(t.id) && Math.abs(t.montant - item.amount) < 0.005);
+        if (exact) { const ds = new Set(item.dates); return cands.find(t => ds.has(toISODateLocal(t.date))) || null; }
+        const d0 = fromISODateLocal(item.day).getTime();
+        return cands.find(t => Math.abs(t.date - d0) <= 4 * 864e5) || null;
+    }
+
     async function bankSync({ auto = false } = {}) {
         if (!bankAvailable() || !bankLinked() || bankSyncing) return null;
         const b = appSettings.bank;
         if (bankExpired()) { if (!auto) showToast('Accès bancaire expiré : renouvelez-le dans Réglages → Banque'); renderBankUI(); return null; }
         bankSyncing = true; renderBankUI();
-        let added = 0, matched = 0, balances = 0;
+        let pending = 0, matched = 0, balances = 0;
         const errors = [];
         try {
-            const known = new Set(appSettings.deletedTxIds || []); // une opération supprimée ne revient pas
+            bankInboxClean();
+            const inbox = bankInbox();
+            const known = new Set(appSettings.deletedTxIds || []); // une opération ignorée ou supprimée ne revient pas
             transactions.forEach(t => { known.add(t.id); if (t.bankRef) known.add(t.bankRef); });
+            inbox.forEach(it => known.add(it.id));
+            const taken = new Set();
             const since = b.since || firstOfMonthISO();
             for (const acc of b.accounts) {
                 const mode = acc.mode || 'tx';
@@ -11236,13 +11310,17 @@ window.closeHelp = function() {
                             const id = 'bank-' + (acc.key || String(acc.uid).slice(0, 8)) + '-' + x.id;
                             if (known.has(id)) continue;
                             known.add(id);
-                            const d = fromISODateLocal(x.date);
-                            // Déjà saisie à la main (ou récurrente) : même montant à ±3 jours → on la rattache
-                            const twin = transactions.find(t => !t.bankRef && !t.bank && Math.abs(t.montant - x.amount) < 0.005 && Math.abs(t.date - d) <= 3 * 864e5);
-                            if (twin) { twin.bankRef = id; twin.updatedAt = Date.now(); matched++; continue; }
-                            const { categorie, desc } = bankCategorize(x);
-                            insertTransaction({ id, date: d, categorie, desc, montant: x.amount, compteId: null, bank: true });
-                            added++;
+                            const item = bankMakeItem(x, id);
+                            const twin = bankFindTwin(item, true, taken);
+                            if (twin) {
+                                twin.bankRef = id; twin.updatedAt = Date.now(); taken.add(twin.id);
+                                inbox.push({ ...item, status: 'linked', txId: twin.id });
+                                matched++;
+                            } else {
+                                const near = bankFindTwin(item, false, taken);
+                                inbox.push({ ...item, status: 'new', nearId: near ? near.id : null });
+                                pending++;
+                            }
                         }
                     } else if (mode.startsWith('bal:')) {
                         const compte = patrimoine.find(p => p.id === Number(mode.slice(4)));
@@ -11257,23 +11335,138 @@ window.closeHelp = function() {
             }
             b.lastSync = Date.now();
             b.lastError = errors.length ? errors[0].message : null;
-            transactions.sort((p, q) => q.date - p.date);
             if (balances) stampCurrentMonthPatrimoine();
             saveBankSettings();
-            saveToLocalStorage();
-            if (added || matched || balances) { initializeMonthSelector(); refreshAllViews(); }
+            if (matched || balances) { saveToLocalStorage(); refreshAllViews(); }
             const parts = [];
-            if (added) parts.push(`${added} opération${added > 1 ? 's' : ''} importée${added > 1 ? 's' : ''}`);
+            if (pending) parts.push(`${pending} à vérifier`);
             if (matched) parts.push(`${matched} déjà saisie${matched > 1 ? 's' : ''}`);
             if (balances) parts.push(`${balances} solde${balances > 1 ? 's' : ''} mis à jour`);
             if (errors.length) showToast('Banque : ' + errors[0].message, { duration: 6000 });
-            else if (parts.length) showToast('Banque · ' + parts.join(', '));
-            else if (!auto) showToast('Banque à jour');
-            return { added, matched, balances, errors: errors.length };
+            else if (parts.length && !(auto && pending)) showToast('Banque · ' + parts.join(', '), pending ? { actionLabel: 'Vérifier', onAction: openBankReview } : {});
+            else if (!auto && !parts.length) showToast('Banque à jour');
+            return { pending, matched, balances, errors: errors.length };
         } finally {
             bankSyncing = false;
             renderBankUI();
+            if (document.getElementById('bank-review-modal')?.style.display === 'flex') renderBankReview();
         }
+    }
+
+    // ── Fenêtre de vérification ──
+    function bankInboxSave(txChanged) {
+        bankInboxClean();
+        saveBankSettings();
+        if (txChanged) { transactions.sort((p, q) => q.date - p.date); saveToLocalStorage(); initializeMonthSelector(); refreshAllViews(); }
+        renderBankReview();
+        renderBankUI();
+    }
+    function bankItem(id) { return bankInbox().find(it => it.id === id); }
+    function bankSetItemCat(id, v) { const it = bankItem(id); if (it) { it.categorie = v; saveBankSettings(); } }
+    function bankAcceptItem(id, batch) {
+        const it = bankItem(id);
+        if (!it || it.status !== 'new') return;
+        const categorie = appSettings.categories.includes(it.categorie) ? it.categorie : (it.amount > 0 ? 'Entrée' : 'Autres');
+        insertTransaction({ id: it.id, date: fromISODateLocal(it.day), categorie, desc: it.desc || it.label, montant: it.amount, compteId: null, bank: true });
+        appSettings.bank.inbox = bankInbox().filter(x => x.id !== id);
+        if (!batch) bankInboxSave(true);
+    }
+    function bankAcceptAll() {
+        const ids = bankInbox().filter(it => it.status === 'new').map(it => it.id);
+        ids.forEach(id => bankAcceptItem(id, true));
+        bankInboxSave(true);
+        showToast(`${ids.length} opération${ids.length > 1 ? 's' : ''} ajoutée${ids.length > 1 ? 's' : ''}`);
+    }
+    function bankIgnoreItem(id) {
+        rememberDeletedIds([id]);
+        appSettings.bank.inbox = bankInbox().filter(x => x.id !== id);
+        localStorage.setItem('finance-settings', JSON.stringify(appSettings));
+        bankInboxSave(false);
+    }
+    /** « C'est la même » : rattacher à une saisie existante */
+    function bankLinkItem(id, txId) {
+        const it = bankItem(id), t = transactions.find(x => x.id === txId && !x.bankRef);
+        if (!it || !t) { renderBankReview(); return; }
+        t.bankRef = id; t.updatedAt = Date.now();
+        it.status = 'linked'; it.txId = t.id; it.nearId = null; it.at = Date.now();
+        bankInboxSave(true);
+    }
+    /** « Pas la même » : défaire un rattachement automatique */
+    function bankUnlinkItem(id) {
+        const it = bankItem(id), t = transactions.find(x => x.bankRef === id);
+        if (t) { delete t.bankRef; t.updatedAt = Date.now(); }
+        if (it) { it.status = 'new'; it.txId = null; it.nearId = null; }
+        bankInboxSave(true);
+    }
+    function openBankReview() {
+        const m = document.getElementById('bank-review-modal');
+        if (!m) return;
+        window._bankReviewShown = true;
+        renderBankReview();
+        m.style.display = 'flex';
+    }
+    /** Fermer : « Terminé » oublie aussi les rattachements déjà vus */
+    function closeBankReview(done) {
+        const m = document.getElementById('bank-review-modal');
+        if (m) m.style.display = 'none';
+        if (done && appSettings.bank) { appSettings.bank.inbox = bankInbox().filter(it => it.status === 'new'); saveBankSettings(); }
+        renderBankUI();
+    }
+    function bankDayLabel(iso) {
+        const today = toISODateLocal(new Date());
+        const yest = toISODateLocal(new Date(Date.now() - 864e5));
+        if (iso === today) return 'Aujourd’hui';
+        if (iso === yest) return 'Hier';
+        const s = fromISODateLocal(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+        return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+    function renderBankReview() {
+        const list = document.getElementById('bank-review-list');
+        if (!list) return;
+        bankInboxClean();
+        const items = bankInbox();
+        const nNew = items.filter(it => it.status === 'new').length, nLinked = items.length - nNew;
+        const sub = document.getElementById('bank-review-sub');
+        if (sub) sub.textContent = nNew
+            ? `${nNew} opération${nNew > 1 ? 's' : ''} à classer${nLinked ? ` · ${nLinked} déjà saisie${nLinked > 1 ? 's' : ''} par vous` : ''}. Rien n'est ajouté sans votre accord.`
+            : (nLinked ? 'Tout correspond à vos saisies.' : 'Rien à vérifier.');
+        const foot = document.getElementById('bank-review-foot');
+        if (foot) foot.innerHTML = nNew
+            ? `<button class="btn" type="button" onclick="bankAcceptAll()">Tout ajouter (${nNew})</button><button class="btn secondary" type="button" onclick="closeBankReview()">Plus tard</button>`
+            : `<button class="btn" type="button" onclick="closeBankReview(true)">Terminé</button>`;
+        const byDay = new Map();
+        items.forEach(it => { if (!byDay.has(it.day)) byDay.set(it.day, []); byDay.get(it.day).push(it); });
+        const days = [...byDay.keys()].sort().reverse();
+        const catOpts = cur => appSettings.categories.map(c => `<option value="${escapeHTML(c)}"${c === cur ? ' selected' : ''}>${escapeHTML(c)}</option>`).join('');
+        const amt = v => `<span class="brv-amt${v > 0 ? ' is-in' : ''}">${fmtEUR(v, { sign: true })}</span>`;
+        list.innerHTML = days.map(day => {
+            const its = byDay.get(day).sort((p, q) => (p.status === 'new') - (q.status === 'new'));
+            const manual = transactions.filter(t => !t.bank && toISODateLocal(t.date) === day).length;
+            const allOk = its.every(it => it.status === 'linked');
+            return `<div class="brv-day">
+                <div class="brv-day-head"><span>${escapeHTML(bankDayLabel(day))}</span><span class="brv-day-count${allOk ? ' is-ok' : ''}">${allOk ? '✓ tout correspond' : `${its.length} à la banque · ${manual} saisie${manual > 1 ? 's' : ''}`}</span></div>
+                ${its.map(it => {
+                    if (it.status === 'linked') {
+                        const t = transactions.find(x => x.id === it.txId) || transactions.find(x => x.bankRef === it.id);
+                        return `<div class="brv-row is-linked"><div class="brv-main">
+                            <div class="brv-top"><div class="brv-label">${escapeHTML(it.label)}</div>${amt(it.amount)}</div>
+                            <div class="brv-sub">✓ Votre saisie « ${escapeHTML(t ? t.desc : '')} » · ${escapeHTML(t ? t.categorie : '')}</div>
+                            <button class="link-btn brv-link" type="button" onclick="bankUnlinkItem(${jsArg(it.id)})">Ce n'est pas la même</button>
+                        </div></div>`;
+                    }
+                    const near = it.nearId ? transactions.find(x => x.id === it.nearId && !x.bankRef) : null;
+                    return `<div class="brv-row"><div class="brv-main">
+                        <div class="brv-top"><div class="brv-label" title="${escapeHTML(it.raw)}">${escapeHTML(it.label)}</div>${amt(it.amount)}</div>
+                        ${near ? `<div class="brv-sub">Même montant que votre saisie « ${escapeHTML(near.desc)} » du ${escapeHTML(near.date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }))} · <button class="link-btn brv-link" type="button" onclick="bankLinkItem(${jsArg(it.id)}, ${jsArg(near.id)})">C'est la même</button></div>` : ''}
+                        <div class="brv-actions">
+                            <select class="brv-cat" aria-label="Catégorie" onchange="bankSetItemCat(${jsArg(it.id)}, this.value)">${catOpts(it.categorie)}</select>
+                            <button class="btn btn-small" type="button" onclick="bankAcceptItem(${jsArg(it.id)})">Ajouter</button>
+                            <button class="btn btn-small secondary" type="button" onclick="bankIgnoreItem(${jsArg(it.id)})">Ignorer</button>
+                        </div>
+                    </div></div>`;
+                }).join('')}
+            </div>`;
+        }).join('') || '<div class="settings-empty">Rien à vérifier.</div>';
     }
 
     async function bankLoadAspsps(force) {
@@ -11344,6 +11537,7 @@ window.closeHelp = function() {
                     const old = prev.get(a.key || a.uid);
                     return { ...a, mode: old ? old.mode : bankDefaultMode(a), lastBooked: old ? old.lastBooked : null };
                 }),
+                inbox: Array.isArray(b.inbox) ? b.inbox : [],
                 linkedAt: Date.now(),
                 lastSync: null
             };
@@ -11353,6 +11547,7 @@ window.closeHelp = function() {
             showToast(isIOSBrowser ? 'Banque reliée ✓ Vous pouvez revenir dans l\'app FinancePRO.' : 'Banque reliée ✓', { duration: 6000 });
             renderBankUI();
             await bankSync({ auto: true });
+            if (bankPendingCount()) openBankReview();
         } catch (e) {
             delete b.pending; saveBankSettings(); renderBankUI();
             alert('Liaison bancaire impossible : ' + e.message);
@@ -11366,9 +11561,13 @@ window.closeHelp = function() {
         window._bankAfterBusy = true;
         try {
             const handled = await bankHandleCallback();
+            let fresh = 0;
             if (!handled && bankLinked() && !bankExpired() && Date.now() - (appSettings.bank.lastSync || 0) > BANK_AUTO_SYNC_MS) {
-                await bankSync({ auto: true });
+                const r = await bankSync({ auto: true });
+                fresh = r ? r.pending : 0;
             }
+            // Dès l'ouverture (ou quand de nouvelles opérations arrivent) : proposer de les classer
+            if (bankLinked() && bankPendingCount() && (fresh || !window._bankReviewShown)) openBankReview();
         } catch (e) { console.warn('Banque :', e); }
         finally { window._bankAfterBusy = false; renderBankUI(); }
     };
@@ -11417,11 +11616,12 @@ window.closeHelp = function() {
         const el = document.getElementById('bank-strip');
         if (!el) return;
         if (!bankAvailable() || !bankLinked()) { el.hidden = true; el.innerHTML = ''; return; }
-        const b = appSettings.bank, exp = bankExpired();
+        const b = appSettings.bank, exp = bankExpired(), n = bankPendingCount();
         el.hidden = false;
-        el.innerHTML = `<span class="bank-dot${exp || b.lastError ? ' is-off' : ''}"></span>
-            <span class="bank-strip-text"><strong>Banque</strong> · ${exp ? 'accès expiré' : bankSyncing ? 'synchronisation…' : 'synchro ' + bankAgo(b.lastSync)}</span>
+        el.innerHTML = `<span class="bank-dot${exp || b.lastError ? ' is-off' : n ? ' is-todo' : ''}"></span>
+            <span class="bank-strip-text"><strong>Banque</strong> · ${exp ? 'accès expiré' : bankSyncing ? 'synchronisation…' : n ? `${n} à vérifier` : 'synchro ' + bankAgo(b.lastSync)}</span>
             ${exp ? `<button class="btn btn-small" type="button" onclick="openBankSettings()">Renouveler</button>`
+                  : n ? `<button class="btn btn-small" type="button" id="bank-review-btn" onclick="openBankReview()">Vérifier</button>`
                   : `<button class="btn btn-small secondary" type="button" id="bank-sync-btn" onclick="bankSync()" ${bankSyncing ? 'disabled' : ''}>Synchroniser</button>`}`;
     }
 
@@ -11485,6 +11685,7 @@ window.closeHelp = function() {
                 <div><div class="settings-row-label">Dernière synchro</div>
                 <div class="settings-row-desc">${bankSyncing ? 'En cours…' : escapeHTML(bankAgo(b.lastSync))}${b.lastError ? ' · ' + escapeHTML(b.lastError) : ''} · automatique toutes les 6 h à l'ouverture</div></div>
             </div>
+            ${bankPendingCount() ? `<div class="bank-note">${bankPendingCount()} opération(s) en attente de vérification · <button class="link-btn" type="button" onclick="closeSettings(); openBankReview()">Vérifier</button></div>` : ''}
             <div class="bank-actions">
                 <button class="btn btn-small" type="button" onclick="bankSync()" ${bankSyncing || exp ? 'disabled' : ''}>Synchroniser</button>
                 <button class="btn btn-small secondary" type="button" id="bank-renew-btn" onclick="bankConnect(true)">Renouveler l'accès</button>
@@ -12413,6 +12614,31 @@ body.quick-add-open .app-toast { top: calc(16px + env(safe-area-inset-top, 0px))
 .bank-strip-text strong { color: var(--text-primary); font-weight: 600; }
 .bank-dot { width: 8px; height: 8px; border-radius: 4px; background: var(--success); flex-shrink: 0; }
 .bank-dot.is-off { background: var(--warning); }
+.bank-dot.is-todo { background: var(--save); }
+.bank-review { max-width: 520px; max-height: calc(100dvh - 32px); display: flex; flex-direction: column; }
+body.pwa-mode .bank-review { max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px)); }
+.bank-review-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bank-review-head .app-modal-title { margin-bottom: 0; }
+.bank-review .app-modal-text { margin: 4px 0 10px; font-size: 14px; }
+.bank-review-list { overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1; min-height: 0; margin: 0 -4px; padding: 0 4px; }
+.brv-day { margin-bottom: 14px; }
+.brv-day-head { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--text-secondary); padding: 6px 0; border-bottom: 0.5px solid var(--border); }
+.brv-day-head > span:first-child { font-weight: 600; color: var(--text-primary); }
+.brv-day-count.is-ok { color: var(--success); }
+.brv-row { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+.brv-row.is-linked { opacity: .8; }
+.brv-main { flex: 1; min-width: 0; }
+.brv-label { font-size: 15px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brv-sub { font-size: 13px; color: var(--text-secondary); margin-top: 2px; line-height: 1.35; }
+.brv-row.is-linked .brv-sub { color: var(--success); }
+.brv-link { font-size: 13px; padding: 2px 0; }
+.brv-amt { font-size: 15px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; padding-top: 1px; }
+.brv-amt.is-in { color: var(--success); }
+.brv-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.brv-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; margin-top: 8px; align-items: center; }
+.brv-actions .brv-cat { min-width: 0; width: 100%; margin-bottom: 0; padding-top: 7px; padding-bottom: 7px; }
+.bank-review-foot { display: flex; gap: 8px; padding-top: 12px; }
+.bank-review-foot .btn { flex: 1; }
 .bank-main-btn { width: 100%; margin-top: 6px; }
 .bank-foot { margin: 10px 0 0; }
 .bank-note { font-size: 13px; line-height: 1.4; padding: 8px 10px; border-radius: 10px; margin: 4px 0 10px; background: var(--bg-tertiary); }
