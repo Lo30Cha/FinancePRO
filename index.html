@@ -400,6 +400,20 @@
             .chart-full .chart-container-tall { height: 340px; }
         }
 
+        /* ===== COURBES : CURSEUR (appui maintenu) + LECTURE AU-DESSUS ===== */
+        .chart-readout { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 16px; margin:0 2px 8px; }
+        .chart-readout-date { flex-basis:100%; font-size:0.72rem; color:var(--text-secondary); font-variant-numeric:tabular-nums; }
+        .chart-readout-item { display:inline-flex; align-items:baseline; gap:6px; padding:0; border:0; background:none; color:var(--text-primary); font:inherit; font-size:1.02rem; font-weight:700; font-variant-numeric:tabular-nums; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+        .chart-readout-item .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; align-self:center; }
+        .chart-readout-item .name { font-size:0.72rem; font-weight:500; color:var(--text-secondary); }
+        .chart-readout-item.off { opacity:0.35; }
+        .chart-readout.single .chart-readout-item { font-size:1.7rem; letter-spacing:-0.02em; cursor:default; }
+        .chart-readout.single .dot, .chart-readout.single .name { display:none; }
+        .chart-scrub canvas { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+        @media (max-width: 768px) {
+            .chart-full .chart-container.chart-bleed { width:100vw; margin-left:calc(50% - 50vw); }
+        }
+
         /* ===== WIDE LAYOUT — MODE 16:9 ===== */
         /* Grille 2 colonnes pour les graphiques côte à côte */
         body.wide-charts .tab-content > .chart-full,
@@ -6089,6 +6103,211 @@ window.closeHelp = function() {
         Chart.defaults.plugins.legend.labels.pointStyle = 'circle';
         Chart.defaults.plugins.legend.labels.boxWidth = 8;
         Chart.defaults.plugins.legend.labels.boxHeight = 8;
+        Chart.register(scrubPlugin());
+    }
+
+    // ── Courbes : lecture au-dessus du graphique + curseur ──
+    // Toucher bref : comme avant (détail au clic). Glisser : la page défile.
+    // Appui maintenu puis glisser : un curseur suit le doigt, valeurs en haut.
+    // Sur PC : le curseur suit la souris.
+    function scrubPlugin() {
+        const HOLD = 180, SLOP = 10;
+        const isLine = c => c.config.type === 'line';
+        const money = v => (v == null || isNaN(v)) ? '—'
+            : Number(v).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' '
+              + ((typeof appSettings !== 'undefined' && appSettings.currency) || '€');
+        const visible = c => c.data.datasets.map((d, i) => i).filter(i => c.isDatasetVisible(i) && c.data.datasets[i].label);
+        const lastIdx = d => { for (let i = d.length - 1; i >= 0; i--) if (d[i] != null && !isNaN(d[i])) return i; return -1; };
+
+        // Petit retour haptique : vibrate (Android), interrupteur natif (iPhone, Safari 17.4+)
+        let hapticEl = null;
+        function haptic() {
+            if (navigator.vibrate) { navigator.vibrate(6); return; }
+            try {
+                if (!hapticEl) {
+                    hapticEl = document.createElement('label');
+                    hapticEl.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;pointer-events:none';
+                    hapticEl.innerHTML = '<input type="checkbox" switch>';
+                    document.body.appendChild(hapticEl);
+                }
+                hapticEl.click();
+            } catch (e) {}
+        }
+
+        function readoutFor(chart) {
+            const host = chart.canvas.parentNode;
+            if (!host._readout) {
+                host._readout = document.createElement('div');
+                host._readout.className = 'chart-readout';
+                host.parentNode.insertBefore(host._readout, host);
+                host._readout.addEventListener('click', e => {
+                    const b = e.target.closest('.chart-readout-item');
+                    const c = host.querySelector('canvas')?._scrubChart;
+                    if (!b || !c || host._readout.classList.contains('single')) return;
+                    const i = +b.dataset.i;
+                    c.setDatasetVisibility(i, !c.isDatasetVisible(i));
+                    c.update();
+                });
+            }
+            return host._readout;
+        }
+
+        function renderReadout(chart) {
+            const el = readoutFor(chart);
+            const ds = chart.data.datasets;
+            const named = ds.map((d, i) => i).filter(i => ds[i].label);
+            const idx = chart.$scrub?.index;
+            const ref = visible(chart)[0] ?? named[0];
+            const at = idx ?? (ref != null ? lastIdx(ds[ref].data) : -1);
+            const label = chart.data.labels[at];
+            el.classList.toggle('single', named.length === 1);
+            el.innerHTML = `<span class="chart-readout-date">${label != null ? escapeHTML(String(label)) : '&nbsp;'}</span>` +
+                named.map(i => {
+                    const d = ds[i];
+                    const v = idx != null ? d.data[idx] : d.data[lastIdx(d.data)];
+                    const color = typeof d.borderColor === 'string' ? d.borderColor : 'var(--text-secondary)';
+                    return `<button type="button" class="chart-readout-item${chart.isDatasetVisible(i) ? '' : ' off'}" data-i="${i}">` +
+                        `<span class="dot" style="background:${color}"></span>` +
+                        `<span class="amount-hidden">${money(v)}</span>` +
+                        `<span class="name">${escapeHTML(d.label)}</span></button>`;
+                }).join('');
+        }
+
+        function nearestIndex(chart, clientX) {
+            const r = chart.canvas.getBoundingClientRect();
+            const x = clientX - r.left;
+            const ref = visible(chart)[0];
+            if (ref == null) return null;
+            const pts = chart.getDatasetMeta(ref).data;
+            let best = null, bd = Infinity;
+            pts.forEach((p, i) => {
+                if (p.skip) return;
+                const dd = Math.abs(p.x - x);
+                if (dd < bd) { bd = dd; best = i; }
+            });
+            return best;
+        }
+
+        function setIndex(chart, i) {
+            const prev = chart.$scrub.index;
+            if (prev === i) return;
+            chart.$scrub.index = i;
+            if (i != null && prev != null) haptic();
+            chart.draw();
+            renderReadout(chart);
+        }
+
+        function bind(canvas) {
+            if (canvas._scrubBound) return;
+            canvas._scrubBound = true;
+            const host = canvas.parentNode;
+            host.classList.add('chart-scrub');
+            let timer = null, active = false, sx = 0, sy = 0, endedAt = 0;
+            const chart = () => canvas._scrubChart;
+            const stop = () => {
+                clearTimeout(timer); timer = null;
+                if (!active) return;
+                active = false; endedAt = Date.now();
+                if (chart()) setIndex(chart(), null);
+            };
+
+            canvas.addEventListener('touchstart', e => {
+                if (e.touches.length !== 1 || !chart()) { stop(); return; }
+                sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+                clearTimeout(timer);
+                timer = setTimeout(() => {
+                    timer = null; active = true;
+                    if (chart()) { setIndex(chart(), nearestIndex(chart(), sx)); haptic(); }
+                }, HOLD);
+            }, { passive: true });
+
+            canvas.addEventListener('touchmove', e => {
+                if (!active) {
+                    const t = e.touches[0];
+                    if (timer && Math.hypot(t.clientX - sx, t.clientY - sy) > SLOP) { clearTimeout(timer); timer = null; }
+                    return;
+                }
+                e.preventDefault(); e.stopPropagation();
+                if (chart()) setIndex(chart(), nearestIndex(chart(), e.touches[0].clientX));
+            }, { passive: false });
+
+            const end = e => { if (active) e.stopPropagation(); stop(); };
+            canvas.addEventListener('touchend', end);
+            canvas.addEventListener('touchcancel', end);
+            canvas.addEventListener('contextmenu', e => { if (active || timer) e.preventDefault(); });
+
+            // Après un curseur, le relâcher ne doit pas ouvrir le détail
+            host.addEventListener('click', e => {
+                if (Date.now() - endedAt < 450) { e.stopPropagation(); e.preventDefault(); }
+            }, true);
+
+            // Souris
+            canvas.addEventListener('mousemove', e => {
+                if (e.sourceCapabilities?.firesTouchEvents || Date.now() - endedAt < 800) return;
+                if (chart()) setIndex(chart(), nearestIndex(chart(), e.clientX));
+            });
+            canvas.addEventListener('mouseleave', () => { if (!active && chart()) setIndex(chart(), null); });
+        }
+
+        return {
+            id: 'scrub',
+            beforeInit(chart) {
+                if (!isLine(chart)) return;
+                const o = chart.config.options;
+                o.events = ['click'];
+                o.plugins = o.plugins || {};
+                o.plugins.tooltip = Object.assign({}, o.plugins.tooltip, { enabled: false });
+                o.plugins.legend = Object.assign({}, o.plugins.legend, { display: false });
+                const full = chart.canvas.closest('.chart-full');
+                if (full) {
+                    chart.canvas.parentNode.classList.add('chart-bleed');
+                    o.scales = o.scales || {};
+                    const y = o.scales.y = o.scales.y || {};
+                    y.ticks = Object.assign({}, y.ticks, { mirror: true, padding: -6, z: 1, maxTicksLimit: 5 });
+                    y.grid = Object.assign({}, y.grid, { drawBorder: false, drawTicks: false });
+                    const x = o.scales.x = o.scales.x || {};
+                    const maxX = window.innerWidth <= 768 ? 4 : 8;
+                    x.ticks = Object.assign({}, x.ticks, { maxRotation: 0, autoSkipPadding: 18,
+                        maxTicksLimit: Math.min(x.ticks?.maxTicksLimit || maxX, maxX) });
+                    x.grid = Object.assign({}, x.grid, { drawBorder: false });
+                    o.layout = Object.assign({}, o.layout, { padding: { left: 0, right: 0, top: 6, bottom: 0 } });
+                }
+            },
+            afterInit(chart) {
+                if (!isLine(chart)) return;
+                chart.$scrub = { index: null };
+                chart.canvas._scrubChart = chart;
+                bind(chart.canvas);
+            },
+            afterUpdate(chart) { if (isLine(chart)) renderReadout(chart); },
+            afterDatasetsDraw(chart) {
+                const i = chart.$scrub?.index;
+                if (!isLine(chart) || i == null) return;
+                const { ctx, chartArea: a } = chart;
+                const ref = visible(chart)[0];
+                const p = ref != null && chart.getDatasetMeta(ref).data[i];
+                if (!p) return;
+                ctx.save();
+                ctx.strokeStyle = chartTextColor();
+                ctx.globalAlpha = 0.35;
+                ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(Math.round(p.x) + 0.5, a.top); ctx.lineTo(Math.round(p.x) + 0.5, a.bottom); ctx.stroke();
+                ctx.globalAlpha = 1;
+                visible(chart).forEach(di => {
+                    const pt = chart.getDatasetMeta(di).data[i];
+                    if (!pt || pt.skip) return;
+                    const c = chart.data.datasets[di].borderColor;
+                    ctx.beginPath(); ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
+                    ctx.fillStyle = typeof c === 'string' ? c : chartTextColor();
+                    ctx.strokeStyle = chartSurfaceColor(); ctx.lineWidth = 2;
+                    ctx.fill(); ctx.stroke();
+                });
+                ctx.restore();
+            },
+            afterDestroy(chart) {
+                if (chart.canvas && chart.canvas._scrubChart === chart) chart.canvas._scrubChart = null;
+            }
+        };
     }
     function chartTextColor() {
         return getComputedStyle(document.documentElement)
