@@ -4093,21 +4093,11 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
         <!-- SÉCURITÉ -->
         <div class="settings-section" id="settings-security">
             <div class="settings-section-title">Verrouillage</div>
-            <p class="settings-help">Un code à 4 chiffres protège l'app sur cet appareil sans vous déconnecter : vos données restent disponibles hors-ligne.</p>
-            <div class="settings-row">
-                <div>
-                    <div class="settings-row-label">Code de verrouillage</div>
-                    <div class="settings-row-desc" id="pin-status-desc">Aucun code défini</div>
-                </div>
-                <div class="settings-row-control" style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
-                    <button class="btn btn-small" id="pin-set-btn" onclick="openPinSetup()">Définir un code</button>
-                    <button class="btn btn-small secondary" id="pin-remove-btn" onclick="removePin()" style="display:none;">Supprimer</button>
-                </div>
-            </div>
+            <p class="settings-help">Le mot de passe du compte est demandé à l'ouverture de l'app et à chaque fois que vous y revenez. Vous restez connecté : vos données restent disponibles hors-ligne.</p>
             <div class="settings-row">
                 <div>
                     <div class="settings-row-label">Verrouiller après inactivité</div>
-                    <div class="settings-row-desc">Aussi au retour dans l'app après ce délai</div>
+                    <div class="settings-row-desc">Verrouille aussi si l'app reste ouverte sans être touchée</div>
                 </div>
                 <div class="settings-row-control">
                     <select id="setting-lock-delay" onchange="setLockDelay(this.value)">
@@ -12909,16 +12899,13 @@ body.quick-add-open #fab-add, body.modal-open #fab-add { display: none; }
 #lock-screen.show { display: flex; }
 .lock-title { font-size: 20px; font-weight: 600; text-align: center; }
 .lock-sub { font-size: 15px; color: var(--danger); min-height: 20px; text-align: center; }
-.lock-dots { display: flex; gap: 16px; }
-.lock-dot { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--text-primary); }
-.lock-dot.filled { background: var(--text-primary); }
-.lock-dots.shake { animation: lockShake .35s; }
-@keyframes lockShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-9px)} 75%{transform:translateX(9px)} }
-.lock-pad { display: grid; grid-template-columns: repeat(3, 76px); gap: 16px 22px; }
-.lock-key { width: 76px; height: 76px; border-radius: 50%; border: none; background: var(--bg-tertiary); color: var(--text-primary); font-size: 30px; font-family: inherit; cursor: pointer; }
-.lock-key:active { background: var(--border); }
-.lock-key.ghost { background: none; font-size: 17px; }
-.lock-link { background: none; border: none; color: var(--accent); font-family: inherit; font-size: 15px; cursor: pointer; }
+.lock-form { display: flex; flex-direction: column; align-items: stretch; gap: 14px; width: 100%; max-width: 320px; }
+.lock-title { margin-bottom: 2px; }
+.lock-email { font-size: 15px; color: var(--text-secondary); text-align: center; margin-top: -8px; overflow-wrap: anywhere; }
+.lock-input { height: 50px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary); font: inherit; font-size: 17px; padding: 0 16px; box-sizing: border-box; }
+.lock-btn { height: 50px; border-radius: 12px; border: none; background: var(--accent); color: var(--on-accent, #fff); font: inherit; font-size: 17px; font-weight: 600; cursor: pointer; }
+.lock-btn:disabled { opacity: 0.6; }
+.lock-link { align-self: center; background: none; border: none; color: var(--accent); font-family: inherit; font-size: 15px; cursor: pointer; }
 body.locked { overflow: hidden; }
 body.locked > *:not(#lock-screen):not(script):not(style) { visibility: hidden; }
 </style>
@@ -12956,171 +12943,108 @@ body.locked > *:not(#lock-screen):not(script):not(style) { visibility: hidden; }
 
 <!-- Écran de verrouillage -->
 <div id="lock-screen" aria-modal="true" role="dialog">
-    <div class="lock-title" id="lock-title">Entrez votre code</div>
-    <div class="lock-dots" id="lock-dots"><span class="lock-dot"></span><span class="lock-dot"></span><span class="lock-dot"></span><span class="lock-dot"></span></div>
-    <div class="lock-sub" id="lock-sub"></div>
-    <div class="lock-pad" id="lock-pad"></div>
-    <button type="button" class="lock-link" id="lock-forgot" onclick="lockForgot()">Code oublié ? Se déconnecter</button>
+    <form class="lock-form" id="lock-form" autocomplete="on" onsubmit="event.preventDefault(); lockSubmit();">
+        <div class="lock-title">FinancePRO est verrouillé</div>
+        <div class="lock-email" id="lock-email"></div>
+        <input type="email" id="lock-user" name="username" autocomplete="username" hidden>
+        <input type="password" id="lock-password" class="lock-input" name="password" autocomplete="current-password" placeholder="Mot de passe" required>
+        <button type="submit" class="lock-btn" id="lock-btn">Déverrouiller</button>
+        <div class="lock-sub" id="lock-sub"></div>
+        <button type="button" class="lock-link" onclick="lockForgot()">Mot de passe oublié ? Se déconnecter</button>
+    </form>
 </div>
 
 <script>
 // =====================================================================
-// ===== VERROUILLAGE PAR CODE =====
-// Remplace : déconnexion forcée à chaque réouverture + auto-déconnexion 5 min
-// (qui vidaient les données locales). Le code est propre à l'appareil.
+// ===== VERROUILLAGE PAR MOT DE PASSE =====
+// La session reste ouverte (données locales et hors-ligne conservées), mais
+// le mot de passe du compte est demandé à l'ouverture et à chaque retour dans
+// l'app. L'écran se met dès qu'on quitte l'app, pour que l'aperçu du
+// sélecteur d'apps ne montre rien. Le mot de passe est vérifié auprès de
+// Supabase sans toucher à la session en cours.
 // =====================================================================
 (function() {
-    const PIN_KEY = 'finance-pin', DELAY_KEY = 'finance-lock-delay', LEN = 4;
-    let entry = '', mode = 'unlock', firstEntry = '', fails = 0, lockedUntil = 0;
-    let idleTimer = null, hiddenAt = null;
+    const DELAY_KEY = 'finance-lock-delay', MAX_FAILS = 5;
+    const AUTH_KEY = 'sb-' + new URL(SUPABASE_URL).hostname.split('.')[0] + '-auth-token';
+    let fails = 0, busy = false, idleTimer = null;
+    localStorage.removeItem('finance-pin'); // ancien code à 4 chiffres
 
-    const getPin = () => { try { return JSON.parse(localStorage.getItem(PIN_KEY) || 'null'); } catch { return null; } };
-    const hasPin = () => !!getPin();
+    const $ = id => document.getElementById(id);
+    const storedEmail = () => { try { return JSON.parse(localStorage.getItem(AUTH_KEY) || 'null')?.user?.email || ''; } catch { return ''; } };
+    const loggedIn = () => !!storedEmail();
+    const isShown = () => $('lock-screen').classList.contains('show');
     const delayMin = () => { const v = localStorage.getItem(DELAY_KEY); return v === null ? 5 : Number(v); };
 
-    async function hashPin(pin, salt) {
-        const data = new TextEncoder().encode(salt + ':' + pin);
-        if (window.crypto && crypto.subtle) {
-            const buf = await crypto.subtle.digest('SHA-256', data);
-            return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
-        }
-        let h = 0; for (const b of data) h = (h * 31 + b) >>> 0; return 'fallback-' + h; // contexte non sécurisé
-    }
-
-    function buildPad() {
-        const pad = document.getElementById('lock-pad');
-        const keys = ['1','2','3','4','5','6','7','8','9','cancel','0','del'];
-        pad.innerHTML = keys.map(k => {
-            if (k === 'del') return '<button type="button" class="lock-key ghost" data-k="del" aria-label="Effacer">⌫</button>';
-            if (k === 'cancel') return '<button type="button" class="lock-key ghost" data-k="cancel" id="lock-cancel">Annuler</button>';
-            return `<button type="button" class="lock-key" data-k="${k}">${k}</button>`;
-        }).join('');
-        pad.onclick = e => { const b = e.target.closest('.lock-key'); if (b) press(b.dataset.k); };
-    }
-
-    function renderDots(shake) {
-        const dots = document.getElementById('lock-dots');
-        [...dots.children].forEach((d, i) => d.classList.toggle('filled', i < entry.length));
-        if (shake) { dots.classList.remove('shake'); void dots.offsetWidth; dots.classList.add('shake'); }
-    }
-
-    function show(newMode) {
-        mode = newMode; entry = ''; firstEntry = '';
-        const ls = document.getElementById('lock-screen');
-        document.getElementById('lock-title').textContent = mode === 'unlock' ? 'Entrez votre code' : 'Choisissez un code à 4 chiffres';
-        document.getElementById('lock-sub').textContent = '';
-        document.getElementById('lock-cancel').style.visibility = mode === 'unlock' ? 'hidden' : 'visible';
-        document.getElementById('lock-forgot').style.display = mode === 'unlock' ? '' : 'none';
-        renderDots();
-        ls.classList.add('show');
-        if (mode === 'unlock') document.body.classList.add('locked');
+    function lockNow() {
+        if (!loggedIn() || isShown()) return;
+        const email = storedEmail();
+        $('lock-email').textContent = email;
+        $('lock-user').value = email;
+        $('lock-password').value = '';
+        $('lock-sub').textContent = '';
+        $('lock-screen').classList.add('show');
+        document.body.classList.add('locked');
+        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     }
     function hide() {
-        document.getElementById('lock-screen').classList.remove('show');
+        $('lock-screen').classList.remove('show');
         document.body.classList.remove('locked');
-        entry = '';
+        $('lock-password').value = '';
     }
-    const isShown = () => document.getElementById('lock-screen').classList.contains('show');
 
-    async function press(k) {
-        if (k === 'cancel') { if (mode !== 'unlock') hide(); return; }
-        if (k === 'del') { entry = entry.slice(0, -1); renderDots(); return; }
-        if (Date.now() < lockedUntil) return;
-        if (entry.length >= LEN) return;
-        entry += k; renderDots();
-        if (entry.length < LEN) return;
-        const sub = document.getElementById('lock-sub');
-
-        if (mode === 'unlock') {
-            const pin = getPin();
-            if (pin && await hashPin(entry, pin.salt) === pin.hash) {
-                fails = 0; hide(); resetIdle();
-                return;
-            }
-            fails++; entry = ''; renderDots(true);
-            if (fails >= 6) {
+    window.lockSubmit = async function() {
+        if (busy) return;
+        const pwd = $('lock-password').value, sub = $('lock-sub');
+        if (!pwd) { sub.textContent = 'Entrez votre mot de passe'; return; }
+        busy = true; $('lock-btn').disabled = true; sub.textContent = '';
+        try {
+            const res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+                method: 'POST',
+                headers: { apikey: SUPABASE_ANON, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: storedEmail(), password: pwd }),
+            });
+            if (res.ok) { fails = 0; hide(); resetIdle(); return; }
+            if (res.status === 429) { sub.textContent = 'Trop d\'essais. Réessayez dans quelques minutes.'; return; }
+            fails++;
+            $('lock-password').value = '';
+            if (fails >= MAX_FAILS) {
                 sub.textContent = 'Trop d\'essais : déconnexion.';
-                setTimeout(() => { localStorage.removeItem(PIN_KEY); hide(); if (typeof firebaseLogout === 'function') firebaseLogout(); }, 900);
-            } else if (fails >= 3) {
-                lockedUntil = Date.now() + 15000;
-                sub.textContent = 'Code incorrect. Réessayez dans 15 s.';
-                setTimeout(() => { if (isShown()) sub.textContent = ''; }, 15000);
-            } else sub.textContent = 'Code incorrect';
-            return;
+                setTimeout(() => { hide(); if (typeof firebaseLogout === 'function') firebaseLogout(); }, 900);
+            } else sub.textContent = 'Mot de passe incorrect';
+        } catch (e) {
+            sub.textContent = 'Pas de connexion : impossible de vérifier le mot de passe.';
+        } finally {
+            busy = false; $('lock-btn').disabled = false;
         }
-        // Définition d'un nouveau code
-        if (!firstEntry) {
-            firstEntry = entry; entry = ''; renderDots();
-            document.getElementById('lock-title').textContent = 'Confirmez le code';
-            return;
-        }
-        if (entry !== firstEntry) {
-            firstEntry = ''; entry = ''; renderDots(true);
-            document.getElementById('lock-title').textContent = 'Choisissez un code à 4 chiffres';
-            sub.textContent = 'Les deux codes ne correspondent pas';
-            return;
-        }
-        const salt = Math.random().toString(36).slice(2) + Date.now().toString(36);
-        localStorage.setItem(PIN_KEY, JSON.stringify({ salt, hash: await hashPin(entry, salt) }));
-        hide(); renderPinSettings(); resetIdle();
-        if (typeof showToast === 'function') showToast('Code de verrouillage activé');
-    }
+    };
 
-    // Saisie au clavier physique (PC)
-    document.addEventListener('keydown', e => {
-        if (!isShown()) return;
-        if (/^[0-9]$/.test(e.key)) { e.preventDefault(); press(e.key); }
-        else if (e.key === 'Backspace') { e.preventDefault(); press('del'); }
-        else if (e.key === 'Escape' && mode !== 'unlock') hide();
-        e.stopPropagation();
-    }, true);
+    window.lockForgot = () => {
+        if (!confirm('Se déconnecter ? Vous pourrez vous reconnecter ou réinitialiser votre mot de passe.')) return;
+        hide();
+        if (typeof firebaseLogout === 'function') firebaseLogout();
+    };
 
-    function lockNow() {
-        if (!hasPin() || isShown()) return;
-        show('unlock');
-    }
     function resetIdle() {
         clearTimeout(idleTimer);
         const d = delayMin();
-        if (hasPin() && d > 0) idleTimer = setTimeout(lockNow, d * 60000);
+        if (loggedIn() && d > 0) idleTimer = setTimeout(lockNow, d * 60000);
     }
     ['mousedown', 'keydown', 'touchstart', 'wheel', 'scroll'].forEach(ev =>
         document.addEventListener(ev, () => { if (!isShown()) resetIdle(); }, { passive: true, capture: true }));
-    // Retour dans l'app (mobile/PWA) après le délai → verrouiller
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden) { hiddenAt = Date.now(); return; }
-        const d = delayMin();
-        if (hiddenAt && hasPin() && d > 0 && Date.now() - hiddenAt >= d * 60000) lockNow();
-        hiddenAt = null;
-    });
 
-    window.openPinSetup = () => show('setup');
-    window.removePin = () => {
-        if (!confirm('Supprimer le code de verrouillage de cet appareil ?')) return;
-        localStorage.removeItem(PIN_KEY); clearTimeout(idleTimer); renderPinSettings();
-    };
+    // Dès qu'on quitte l'app (autre app, écran d'accueil, veille) : verrouiller
+    document.addEventListener('visibilitychange', () => { if (document.hidden) lockNow(); });
+    window.addEventListener('pagehide', lockNow);
+
     window.setLockDelay = v => { localStorage.setItem(DELAY_KEY, String(v)); resetIdle(); };
-    window.lockForgot = () => {
-        if (!confirm('Se déconnecter ? Il faudra votre mot de passe, puis vous pourrez définir un nouveau code.')) return;
-        localStorage.removeItem(PIN_KEY); hide();
-        if (typeof firebaseLogout === 'function') firebaseLogout();
-    };
     window.lockApp = lockNow;
-    window.renderPinSettings = function renderPinSettings() {
-        const desc = document.getElementById('pin-status-desc');
-        if (!desc) return;
-        const on = hasPin();
-        desc.textContent = on ? 'Actif sur cet appareil' : 'Aucun code défini';
-        document.getElementById('pin-set-btn').textContent = on ? 'Changer le code' : 'Définir un code';
-        document.getElementById('pin-remove-btn').style.display = on ? '' : 'none';
-        const sel = document.getElementById('setting-lock-delay');
-        if (sel) { sel.value = String(delayMin()); sel.disabled = !on; }
+    window.renderPinSettings = function() {
+        const sel = $('setting-lock-delay');
+        if (sel) sel.value = String(delayMin());
     };
-    function renderPinSettings() { window.renderPinSettings(); }
 
-    buildPad();
-    // À l'ouverture de l'app : verrouillé si un code existe (remplace la reconnexion forcée)
-    if (hasPin()) show('unlock');
+    // À l'ouverture : verrouillé si une session est enregistrée
+    lockNow();
     resetIdle();
 })();
 
