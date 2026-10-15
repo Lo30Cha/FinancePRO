@@ -2319,6 +2319,10 @@ tr:hover td { background: none; }
 .settings-row-label { font-size: 17px; font-weight: 400; }
 .settings-row-desc { font-size: 13px; color: var(--text-secondary); }
 .settings-list-row { border: none; border-bottom: 0.5px solid var(--border); border-radius: 0; padding: 10px 0; }
+.settings-row-stack { flex-direction: column; align-items: stretch; gap: 10px; }
+.res-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.res-chip { background: var(--bg-tertiary); border: 1px solid transparent; color: var(--text-secondary); border-radius: 16px; padding: 6px 12px; font-size: 14px; cursor: pointer; font-family: inherit; }
+.res-chip.is-on { background: var(--text-primary); color: var(--bg-primary); font-weight: 600; }
 .cat-tag { background: var(--bg-tertiary); border: none; color: var(--text-primary); border-radius: 16px; padding: 6px 12px; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 
 /* ── Fenêtres ── */
@@ -4032,6 +4036,14 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                         <option value="CAD">CAD Dollar canadien</option>
                     </select>
                 </div>
+            </div>
+
+            <div class="settings-row settings-row-stack">
+                <div>
+                    <div class="settings-row-label">Pays où je vis</div>
+                    <div class="settings-row-desc">Les paiements bancaires repérés dans un autre pays sont suggérés en Voyage. Plusieurs choix possibles.</div>
+                </div>
+                <div class="res-chips" id="residence-chips"></div>
             </div>
 
             <div class="settings-row">
@@ -10656,6 +10668,7 @@ window.closeHelp = function() {
     }
 
     function renderSettingsUI() {
+        try { renderResidenceChips(); } catch (e) {}
         // Apparence (segmenté Automatique / Clair / Sombre)
         const themeGrid = document.getElementById('theme-grid');
         if (themeGrid) {
@@ -11196,7 +11209,7 @@ window.closeHelp = function() {
         // les paramètres (projets, récurrences, règles, catégories, suppressions…) sont conservées.
         const keep = {};
         ['projets', 'recurrences', 'categoryRules', 'categories', 'categoryColors', 'customDescs',
-         'deletedTxIds', 'budgets', 'lastEpargneCompteId', 'bank', 'bankRulesV1', 'catRulesV2', 'catsV2', 'residenceCountry'].forEach(k => { if (appSettings[k] !== undefined) keep[k] = appSettings[k]; });
+         'deletedTxIds', 'budgets', 'lastEpargneCompteId', 'bank', 'bankRulesV1', 'catRulesV2', 'catsV2', 'residenceCountries'].forEach(k => { if (appSettings[k] !== undefined) keep[k] = appSettings[k]; });
         appSettings = {
             theme: 'auto', themeV2: true, customColors: {}, appName: 'FINANCE PRO', currency: '€',
             recentCount: 8, animations: true, compact: false, savingsTarget: 20,
@@ -11571,25 +11584,47 @@ window.closeHelp = function() {
         US: ['États-Unis', 'usa new_york los_angeles san_francisco'],
         AD: ['Andorre', 'andorra andorre']
     };
+    // La France n'a que des villes : les libellés français n'indiquent en général pas le pays
+    const BANK_PLACES_FR = ['France', 'france paris lyon marseille toulouse bordeaux lille nantes strasbourg rennes montpellier bourges grenoble'];
     const RESIDENCE_CHOICES = [['FR', 'France'], ...Object.entries(BANK_PLACES).map(([k, v]) => [k, v[0]])];
 
-    /** Pays (hors France et pays de résidence) repéré dans un libellé bancaire, sinon null */
+    /** Pays où l'on vit (Réglages → Général), France par défaut */
+    function residenceCountries() {
+        const s = appSettings;
+        if (!Array.isArray(s.residenceCountries) || !s.residenceCountries.length)
+            s.residenceCountries = [s.residenceCountry && s.residenceCountry !== 'FR' ? s.residenceCountry : 'FR'];
+        return s.residenceCountries;
+    }
+
+    /** Pays (hors pays où l'on vit) repéré dans un libellé bancaire, sinon null */
     function bankAbroadCountry(raw) {
         const hay = ' ' + normTxt(raw).replace(/[^a-z0-9]+/g, ' ') + ' ';
-        const home = appSettings.residenceCountry || 'FR';
-        for (const [code, [name, words]] of Object.entries(BANK_PLACES)) {
-            if (code === home) continue;
+        const homes = residenceCountries();
+        const places = { FR: BANK_PLACES_FR, ...BANK_PLACES };
+        for (const [code, [name, words]] of Object.entries(places)) {
+            if (homes.includes(code)) continue;
             if (words.split(' ').some(w => hay.includes(' ' + w.replace(/_/g, ' ') + ' '))) return name;
         }
-        // Frais bancaires de paiement hors zone euro : un voyage, sauf si l'on vit hors de France
-        if (home === 'FR' && /hors zone euro|commission (int|internationale)|frais (paiement|retrait) (etranger|hors)/.test(hay)) return 'étranger';
+        // Frais de paiement hors zone euro : un voyage seulement si l'on ne vit qu'en France
+        if (homes.length === 1 && homes[0] === 'FR' && /hors zone euro|commission (int|internationale)|frais (paiement|retrait) (etranger|hors)/.test(hay)) return 'étranger';
         return null;
     }
 
-    function setResidenceCountry(code) {
-        appSettings.residenceCountry = code || 'FR';
+    function toggleResidenceCountry(code) {
+        const list = residenceCountries();
+        const i = list.indexOf(code);
+        if (i >= 0) { if (list.length === 1) { showToast('Gardez au moins un pays'); return; } list.splice(i, 1); }
+        else list.push(code);
+        delete appSettings.residenceCountry;
         saveSettings();
-        renderBankUI();
+        renderResidenceChips();
+    }
+
+    function renderResidenceChips() {
+        const el = document.getElementById('residence-chips');
+        if (!el) return;
+        const on = residenceCountries();
+        el.innerHTML = RESIDENCE_CHOICES.map(([k, n]) => `<button type="button" class="res-chip${on.includes(k) ? ' is-on' : ''}" aria-pressed="${on.includes(k)}" onclick="toggleResidenceCountry('${k}')">${escapeHTML(n)}</button>`).join('');
     }
 
     function bankCategorize(x) {
@@ -12041,11 +12076,6 @@ window.closeHelp = function() {
                     </div>
                     <select class="bank-mode" aria-label="Usage du compte ${escapeHTML(acc.name)}" onchange="bankSetMode(${jsArg(acc.uid)}, this.value)">${modeOptions(acc)}</select>
                 </div>`).join('')}
-            </div>
-            <div class="settings-row">
-                <div><div class="settings-row-label">Pays où vous vivez</div>
-                <div class="settings-row-desc">Les paiements repérés dans un autre pays (hors France) sont suggérés en Voyage</div></div>
-                <div class="settings-row-control"><select id="bank-residence" onchange="setResidenceCountry(this.value)">${RESIDENCE_CHOICES.map(([k, n]) => `<option value="${k}"${(appSettings.residenceCountry || 'FR') === k ? ' selected' : ''}>${escapeHTML(n)}</option>`).join('')}</select></div>
             </div>
             <div class="settings-row">
                 <div><div class="settings-row-label">Dernière synchro</div>
