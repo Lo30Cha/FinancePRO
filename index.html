@@ -3219,7 +3219,10 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                                     <option value="Loyers">Loyers</option>
                                     <option value="Nourriture">Nourriture</option>
                                     <option value="Sortie">Sortie</option>
-                                    <option value="Voiture">Voiture</option>
+                                    <option value="Transport">Transport</option>
+                                    <option value="Voyage">Voyage</option>
+                                    <option value="Abonnements">Abonnements</option>
+                                    <option value="Santé">Santé</option>
                                 </select>
                                 <span id="scratch-cat-hint" style="display:none; font-size:0.72rem; color:var(--text-secondary);">Touchez pour (dé)sélectionner plusieurs catégories</span>
                             </div>
@@ -3927,7 +3930,10 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                     <option value="Loyers">Loyers</option>
                     <option value="Nourriture">Nourriture</option>
                     <option value="Sortie">Sortie</option>
-                    <option value="Voiture">Voiture</option>
+                    <option value="Transport">Transport</option>
+                    <option value="Voyage">Voyage</option>
+                    <option value="Abonnements">Abonnements</option>
+                    <option value="Santé">Santé</option>
                 </select>
             </div>
             <div>
@@ -4553,7 +4559,7 @@ const SLIDES = [
   <rect x="202" y="${148}" width="34" height="15" rx="3" fill="rgba(46,158,91,0.65)"/>
   <text x="35"  y="168" text-anchor="middle" font-size="6.5" fill="rgba(255,255,255,0.4)" font-family="var(--font)">Loyers</text>
   <text x="81"  y="168" text-anchor="middle" font-size="6.5" fill="rgba(255,255,255,0.4)" font-family="var(--font)">Nourrit.</text>
-  <text x="127" y="168" text-anchor="middle" font-size="6.5" fill="rgba(255,255,255,0.4)" font-family="var(--font)">Voiture</text>
+  <text x="127" y="168" text-anchor="middle" font-size="6.5" fill="rgba(255,255,255,0.4)" font-family="var(--font)">Transport</text>
   <text x="173" y="168" text-anchor="middle" font-size="6.5" fill="rgba(255,255,255,0.4)" font-family="var(--font)">Sortie</text>
   <text x="219" y="168" text-anchor="middle" font-size="6.5" fill="rgba(255,255,255,0.4)" font-family="var(--font)">Achat</text>
   <!-- Transactions -->
@@ -4591,7 +4597,7 @@ const SLIDES = [
   <!-- Label catégorie -->
   <text x="16" y="88" font-size="7" fill="rgba(255,255,255,0.3)" font-family="var(--font)">Catégorie :</text>
   <!-- Chips sur 2 lignes de 4 -->
-  ${[['Entrée',0,0],['Nourriture',1,0],['Loyers',2,0],['Voiture',3,0],['Sortie',0,1],['Achat',1,1],['Epargne',2,1],['Autres',3,1]].map(([n,col,row]) => {
+  ${[['Entrée',0,0],['Nourriture',1,0],['Loyers',2,0],['Transport',3,0],['Sortie',0,1],['Achat',1,1],['Epargne',2,1],['Autres',3,1]].map(([n,col,row]) => {
     const x = 16 + col*68, y = 92 + row*17, active = n==='Nourriture';
     return `<rect x="${x}" y="${y}" width="62" height="13" rx="6" fill="${active?'rgba(52,120,246,0.2)':'rgba(255,255,255,0.04)'}" stroke="${active?'rgba(52,120,246,0.5)':'rgba(255,255,255,0.08)'}"/>
     <text x="${x+31}" y="${y+9.5}" text-anchor="middle" font-size="6.5" fill="${active?'rgba(52,120,246,1)':'rgba(255,255,255,0.4)'}" font-family="var(--font)">${n}</text>`;
@@ -4647,7 +4653,7 @@ const SLIDES = [
     ['01/10','Entrée','Salaire','+3 200€','rgba(46,158,91,0.9)'],
     ['03/10','Loyers','Loyer appart.','-950€','rgba(210,72,58,0.8)'],
     ['05/10','Nourriture','Courses','-85€','rgba(210,72,58,0.8)'],
-    ['08/10','Voiture','Essence','-60€','rgba(210,72,58,0.8)'],
+    ['08/10','Transport','Essence','-60€','rgba(210,72,58,0.8)'],
     ['12/10','Sortie','Restaurant','-45€','rgba(210,72,58,0.8)'],
     ['15/10','Achat','Amazon','-120€','rgba(210,72,58,0.8)'],
   ].map(([d,c,n,m,col],i) => `
@@ -5205,6 +5211,14 @@ window.closeHelp = function() {
             prets = storedPrets ? JSON.parse(storedPrets) : [];
         } catch(e) { console.warn('Lecture historique/prêts impossible', e); }
         lastUpdateDate = localStorage.getItem('finance-last-update') || null;
+        // Nouvelles catégories : reclassement de l'historique (enregistré et envoyé au cloud)
+        try {
+            if (migrateCategoriesV2()) {
+                localStorage.setItem('finance-data', JSON.stringify(transactions));
+                localStorage.setItem('finance-settings', JSON.stringify(appSettings));
+                setTimeout(() => scheduleCloudSync(), 0);
+            }
+        } catch (e) { console.warn('Migration catégories impossible', e); }
         window._appStateLoaded = true;
         initializeMonthSelector();
         refreshAllViews();
@@ -5926,6 +5940,7 @@ window.closeHelp = function() {
         // Banque : la configuration la plus récente gagne (liaison faite sur un autre appareil)
         const cb = cloudSettings.bank, lb = appSettings.bank;
         if (cb && (!lb || (cb.updatedAt || 0) > (lb.updatedAt || 0))) { appSettings.bank = cb; changed = true; }
+        try { if (migrateCategoriesV2()) changed = true; } catch (e) { console.warn('Migration catégories impossible', e); }
         persistAllLocal();
         if (changed) {
             initializeMonthSelector();
@@ -5980,7 +5995,12 @@ window.closeHelp = function() {
         if (!cat) return 'Autres';
         const normalized = {
             'achat': 'Achat',
-            'voiture': 'Voiture',
+            'voiture': 'Transport',
+            'transport': 'Transport',
+            'voyage': 'Voyage',
+            'abonnements': 'Abonnements',
+            'sante': 'Santé',
+            'santé': 'Santé',
             'autres': 'Autres',
             'entrée': 'Entrée',
             'epargne': 'Epargne',
@@ -8242,7 +8262,7 @@ window.closeHelp = function() {
                 const isRev2=isRevenue(t);
                 doc.setFontSize(7);doc.setFont('helvetica','normal');
                 doc.setTextColor(...C.light);doc.text(t.date.toLocaleDateString('fr-FR'),cols[0],y);
-                doc.setTextColor(...(SCOL[['Achat','Loyers','Nourriture','Sortie','Voiture'].indexOf(t.categorie)%6]||C.grey));
+                doc.setTextColor(...(SCOL[['Achat','Loyers','Nourriture','Sortie','Transport','Voyage'].indexOf(t.categorie)%6]||C.grey));
                 doc.text(t.categorie,cols[1],y);
                 doc.setTextColor(...C.light);doc.text((t.desc||'').slice(0,30),cols[2],y);
                 doc.setTextColor(...(isRev2?C.green:t.categorie==='Epargne'?C.purple:C.red));
@@ -10183,7 +10203,7 @@ window.closeHelp = function() {
         },
     ];
 
-    const DEFAULT_CATEGORIES = ['Achat','Autres','Entrée','Epargne','Loyers','Nourriture','Sortie','Voiture'];
+    const DEFAULT_CATEGORIES = ['Abonnements','Achat','Autres','Entrée','Epargne','Loyers','Nourriture','Santé','Sortie','Transport','Voyage'];
 
     let appSettings = {
         theme: 'auto', themeV2: true,
@@ -10195,9 +10215,95 @@ window.closeHelp = function() {
         compact: false,
         savingsTarget: 20,
         categories: [...DEFAULT_CATEGORIES],
-        budgets: { Nourriture: 400, Loyers: 800, Voiture: 200, Sortie: 150, Achat: 300 },
+        budgets: { Nourriture: 400, Loyers: 800, Transport: 200, Sortie: 150, Achat: 300 },
         projets: [] // { id, nom, type:'projet'|'voyage', budget, dateDebut, dateFin, statut:'actif'|'termine'|'archive', icone, couleur }
     };
+
+    // ===== CATÉGORIES V2 : Transport / Voyage / Abonnements / Santé (octobre 2026) =====
+    // Migration appliquée à chaque chargement, sans effet une fois faite :
+    //  - réglages : Voiture devient Transport, ajout de Voyage, Abonnements, Santé (une seule fois) ;
+    //  - transactions : reclassement de l'historique validé. Seules les transactions non
+    //    modifiées depuis la mise en place sont touchées (une correction faite à la main après
+    //    coup n'est jamais écrasée, même par un autre appareil).
+    const CAT_V2_CUTOFF = Date.parse('2026-10-15T06:00:00Z');
+    const CAT_V2_VOYAGE_PROJETS = ['0.15544335607756232']; // « Jap 26 »
+
+    function catV2Norm(s) {
+        return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+    }
+
+    /** Nouvelle catégorie d'une transaction de l'ancien découpage, ou null si elle ne bouge pas */
+    function catV2Target(t) {
+        const c = t.categorie, d = catV2Norm(t.desc);
+        if (c === 'Voiture') return 'Transport';
+        if (c === 'Entrée' || c === 'Epargne' || c === 'Loyers') return null;
+        const from = (...cats) => cats.includes(c);
+        if (!from('Sortie', 'Achat', 'Autres', 'Nourriture')) return null;
+        const is = (...xs) => xs.includes(d);
+        const starts = (...xs) => xs.some(x => d.startsWith(x));
+        // Voyage : tout ce qui est rattaché à un voyage, puis les libellés de voyage et de weekend
+        if (t.projetId && CAT_V2_VOYAGE_PROJETS.includes(String(t.projetId))) return 'Voyage';
+        if (is('billet avion', 'aller retour taiwan', 'aller japon', 'retour japon', 'visa taiwan',
+               'appartement madere 1', 'appartement madere 2', 'location voiture madere', 'madere',
+               'loyer weekend', 'peage weekend', 'weekend 14 juillet', 'cheque vacances', 'esim', 'valise',
+               'courses clecy', 'paillote clecy', 'moussac', 'cave moussac', 'printemps bourges', 'disney', 'ski')
+            || starts('airbnb', 'bkg*booking', 'transatel', 'okinawa')
+            || (c === 'Sortie' && d.startsWith('logement '))
+            || /\b(tokyo|okinawa|saitama)\b/.test(d)) return 'Voyage';
+        // Transport
+        if (is('rer', 'rer ratp', 'ratp', 'transport ratp', 'transport', 'sncf', 'train', 'uber',
+               'parking', 'amende stationnement', 'permis international') || d.startsWith('taiwan high speed')) return 'Transport';
+        // Cadeaux → Achat
+        if (from('Autres', 'Sortie') && starts('kdo', 'cadeau')) return 'Achat';
+        // Abonnements
+        if (c === 'Autres' && (starts('abonnement', 'apple', 'icloud', 'anthropic'))) return 'Abonnements';
+        // Santé
+        if (from('Autres', 'Achat', 'Nourriture') && (is('doctolib', 'hopital', 'lunettes', 'medecin', 'pharmacie', 'vitamine c') || d.startsWith('watson'))) return 'Santé';
+        // Machine à laver rangée dans Nourriture → Autres
+        if (c === 'Nourriture' && is('machine laver', 'machine a laver')) return 'Autres';
+        // Nourriture (rangée dans Autres ou Achat)
+        if (from('Autres', 'Achat') && is('cafe', 'machine a cafe', 'boulangerie', 'cookie', 'croissant', 'crous',
+               'dejeune crous', 'gateau distributeur', 'lidl', 'carrefour')) return 'Nourriture';
+        return null;
+    }
+
+    /** Applique la migration. Retourne true si quelque chose a changé (à enregistrer). */
+    function migrateCategoriesV2() {
+        let changed = false;
+        const s = appSettings;
+        if (!Array.isArray(s.categories)) s.categories = [...DEFAULT_CATEGORIES];
+        if (!s.catsV2) {
+            s.categories = s.categories.map(c => c === 'Voiture' ? 'Transport' : c);
+            ['Transport', 'Voyage', 'Abonnements', 'Santé'].forEach(c => { if (!s.categories.includes(c)) s.categories.push(c); });
+            s.categories = [...new Set(s.categories)].sort((a, b) => a.localeCompare(b, 'fr'));
+            if (s.customDescs && s.customDescs.Voiture) {
+                s.customDescs.Transport = [...new Set([...(s.customDescs.Transport || []), ...s.customDescs.Voiture])];
+                delete s.customDescs.Voiture;
+            }
+            s.catsV2 = true;
+            changed = true;
+        }
+        // Récurrentes et opérations bancaires en attente
+        (s.recurrences || []).forEach(r => { if (r.categorie === 'Voiture') { r.categorie = 'Transport'; changed = true; } });
+        const inbox = s.bank && Array.isArray(s.bank.inbox) ? s.bank.inbox : [];
+        inbox.forEach(it => {
+            if (it.status !== 'new' || it.catV2) return;
+            if (it.categorie === 'Voiture') it.categorie = 'Transport';
+            if (it.amount < 0 && typeof bankAbroadCountry === 'function' && bankAbroadCountry(it.raw || it.label)) it.categorie = 'Voyage';
+            it.catV2 = true;
+            changed = true;
+        });
+        // Transactions
+        const now = Date.now();
+        let moved = 0;
+        transactions.forEach(t => {
+            if ((t.updatedAt || 0) >= CAT_V2_CUTOFF) return;
+            const target = catV2Target(t);
+            if (target && target !== t.categorie) { t.categorie = target; t.updatedAt = now; moved++; }
+        });
+        if (moved) { changed = true; console.log('Catégories V2 :', moved, 'transactions reclassées'); }
+        return changed;
+    }
 
     // ===== PROJETS / VOYAGES =====
     // Stockés dans appSettings (donc dans la clé 'finance-settings' déjà synchronisée
@@ -10693,8 +10799,12 @@ window.closeHelp = function() {
         'Achat':      '#8E5BD0',
         'Nourriture': '#D9822B',
         'Loyers':     '#C24C7B',
+        'Transport':  '#D2483A',
         'Voiture':    '#D2483A',
         'Sortie':     '#1F9AA8',
+        'Voyage':     '#B8922A',
+        'Abonnements':'#5B6CCB',
+        'Santé':      '#7FA33A',
         'Autres':     '#8E8E93',
     };
     // (Plus d'emojis de catégorie : une pastille de couleur suffit)
@@ -10719,11 +10829,14 @@ window.closeHelp = function() {
 
     // ── Descriptions suggérées par catégorie ──────────────────────────────
     const CAT_DESCRIPTIONS = {
-        'Nourriture': ['Crous','Courses','Cantine MBDA','Fast-food','Restaurant','Boulangerie','Rechargement Izly','Machine à laver'],
-        'Sortie':     ['Bar','Restaurant','Fast-food','Transport','Cinéma','Sport','Soirée','Boulangerie','Courses soirée','Loisir','Ski','Livraison','Virement ami'],
-        'Achat':      ['Vêtement','High-tech','Cadeau','Jeu / Steam','Amazon','Décathlon','Pharmacie','Fournitures','Coiffeur','Fnac','Équipement travail','Transport'],
-        'Voiture':    ['Péage','Essence','Réparation','Parking'],
-        'Autres':     ['Café','Machine à laver','Coiffeur','Médecin','Pharmacie','Abonnement CB','Formation','Administratif','Distributeur','Snack','Divers'],
+        'Nourriture': ['Crous','Courses','Cantine MBDA','Fast-food','Restaurant','Boulangerie','Café','Rechargement Izly'],
+        'Sortie':     ['Bar','Restaurant','Fast-food','Cinéma','Sport','Soirée','Boulangerie','Courses soirée','Loisir','Livraison','Virement ami'],
+        'Achat':      ['Vêtement','High-tech','Cadeau','Jeu / Steam','Amazon','Décathlon','Fournitures','Coiffeur','Fnac','Équipement travail'],
+        'Transport':  ['RER / Métro','Train','Uber','Essence','Péage','Parking','Réparation'],
+        'Voyage':     ['Billet avion','Logement','Airbnb','eSIM','Restaurant','Activité','Transport','Courses','Souvenirs'],
+        'Abonnements':['Abonnement tel','Apple / iCloud','Abonnement CB','Claude','Streaming'],
+        'Santé':      ['Médecin','Pharmacie','Hôpital','Lunettes','Mutuelle'],
+        'Autres':     ['Machine à laver','Coiffeur','Formation','Administratif','Distributeur','Divers'],
         'Entrée':     ['Salaire MBDA','Prime MBDA','CAF','Mobili-Jeune','Remboursement','Remboursement mutuelle','Cadeau','Virement ami','Virement famille','Chèque'],
         'Epargne':    ['Épargne entrée','Épargne sortie'],
         'Loyers':     ['Loyer Paris','Loyer Bourges'],
@@ -11083,12 +11196,12 @@ window.closeHelp = function() {
         // les paramètres (projets, récurrences, règles, catégories, suppressions…) sont conservées.
         const keep = {};
         ['projets', 'recurrences', 'categoryRules', 'categories', 'categoryColors', 'customDescs',
-         'deletedTxIds', 'budgets', 'lastEpargneCompteId', 'bank', 'bankRulesV1'].forEach(k => { if (appSettings[k] !== undefined) keep[k] = appSettings[k]; });
+         'deletedTxIds', 'budgets', 'lastEpargneCompteId', 'bank', 'bankRulesV1', 'catRulesV2', 'catsV2', 'residenceCountry'].forEach(k => { if (appSettings[k] !== undefined) keep[k] = appSettings[k]; });
         appSettings = {
             theme: 'auto', themeV2: true, customColors: {}, appName: 'FINANCE PRO', currency: '€',
             recentCount: 8, animations: true, compact: false, savingsTarget: 20,
             categories: [...DEFAULT_CATEGORIES],
-            budgets: { Nourriture: 400, Loyers: 800, Voiture: 200, Sortie: 150, Achat: 300 },
+            budgets: { Nourriture: 400, Loyers: 800, Transport: 200, Sortie: 150, Achat: 300 },
             ...keep
         };
         ['--bg-primary','--accent-blue','--accent-purple','--success'].forEach(v => document.documentElement.style.removeProperty(v));
@@ -11270,15 +11383,21 @@ window.closeHelp = function() {
         ['crous', 'Nourriture', 'Crous'], ['izly', 'Nourriture', 'Rechargement Izly'], ['boulangerie', 'Nourriture', 'Boulangerie'],
         ['mcdonald', 'Nourriture', 'Fast-food'], ['burger king', 'Nourriture', 'Fast-food'], ['kfc', 'Nourriture', 'Fast-food'],
         ['uber eats', 'Sortie', 'Livraison'], ['deliveroo', 'Sortie', 'Livraison'],
-        ['total', 'Voiture', 'Essence'], ['esso', 'Voiture', 'Essence'], ['shell', 'Voiture', 'Essence'], ['avia', 'Voiture', 'Essence'],
-        ['peage', 'Voiture', 'Péage'], ['vinci autoroutes', 'Voiture', 'Péage'], ['sanef', 'Voiture', 'Péage'], ['aprr', 'Voiture', 'Péage'],
-        ['parking', 'Voiture', 'Parking'], ['indigo', 'Voiture', 'Parking'],
-        ['sncf', 'Sortie', 'Transport'], ['ratp', 'Sortie', 'Transport'], ['navigo', 'Sortie', 'Transport'], ['uber', 'Sortie', 'Transport'],
+        ['total', 'Transport', 'Essence'], ['esso', 'Transport', 'Essence'], ['shell', 'Transport', 'Essence'], ['avia', 'Transport', 'Essence'],
+        ['peage', 'Transport', 'Péage'], ['vinci autoroutes', 'Transport', 'Péage'], ['sanef', 'Transport', 'Péage'], ['aprr', 'Transport', 'Péage'],
+        ['parking', 'Transport', 'Parking'], ['indigo', 'Transport', 'Parking'],
+        ['sncf', 'Transport', 'Train'], ['ratp', 'Transport', 'RER / Métro'], ['navigo', 'Transport', 'RER / Métro'], ['uber', 'Transport', 'Uber'],
         ['amazon', 'Achat', 'Amazon'], ['decathlon', 'Achat', 'Décathlon'], ['fnac', 'Achat', 'Fnac'], ['steam', 'Achat', 'Jeu / Steam'],
-        ['pharmacie', 'Autres', 'Pharmacie'], ['netflix', 'Autres', 'Abonnement CB'], ['spotify', 'Autres', 'Abonnement CB'],
+        ['pharmacie', 'Santé', 'Pharmacie'], ['netflix', 'Abonnements', 'Streaming'], ['spotify', 'Abonnements', 'Streaming'],
         ['retrait dab', 'Autres', 'Distributeur'], ['retrait', 'Autres', 'Distributeur'],
         ['mbda', 'Entrée', 'Salaire MBDA'], ['caf ', 'Entrée', 'CAF'], ['loyer', 'Loyers', '']
     ].map(([motif, categorie, desc], i) => ({ id: 'def-' + i, motif, categorie, desc }));
+    // Ajoutées avec les catégories Transport / Voyage / Abonnements / Santé
+    const CAT_V2_RULES = [
+        ['airbnb', 'Voyage', 'Airbnb'], ['booking.com', 'Voyage', 'Booking'], ['esim', 'Voyage', 'eSIM'], ['ubigi', 'Voyage', 'eSIM'],
+        ['apple.com/bill', 'Abonnements', 'Apple / iCloud'], ['icloud', 'Abonnements', 'Apple / iCloud'], ['anthropic', 'Abonnements', 'Claude'],
+        ['doctolib', 'Santé', 'Médecin']
+    ].map(([motif, categorie, desc], i) => ({ id: 'def-v2-' + i, motif, categorie, desc }));
     // Ajoutées avec la synchro bancaire : virements entre le compte courant et l'épargne
     const BANK_CATEGORY_RULES = [
         { id: 'def-bank-livret', motif: 'livret', categorie: 'Epargne', desc: 'Livret' },
@@ -11287,7 +11406,22 @@ window.closeHelp = function() {
     ];
 
     function getCategoryRules() {
-        if (!appSettings.categoryRules) appSettings.categoryRules = [...DEFAULT_CATEGORY_RULES, ...BANK_CATEGORY_RULES].map(r => ({ ...r }));
+        if (!appSettings.categoryRules) appSettings.categoryRules = [...DEFAULT_CATEGORY_RULES, ...BANK_CATEGORY_RULES, ...CAT_V2_RULES].map(r => ({ ...r }));
+        if (!appSettings.catRulesV2) {
+            // Règles par défaut existantes : Voiture → Transport, transports/pharmacie/abonnements vers les nouvelles catégories
+            // (seules les règles par défaut sont déplacées, pas celles créées à la main)
+            const moved = { sncf: ['Sortie', 'Transport', 'Train'], ratp: ['Sortie', 'Transport', 'RER / Métro'], navigo: ['Sortie', 'Transport', 'RER / Métro'],
+                            uber: ['Sortie', 'Transport', 'Uber'], pharmacie: ['Autres', 'Santé', 'Pharmacie'],
+                            netflix: ['Autres', 'Abonnements', 'Streaming'], spotify: ['Autres', 'Abonnements', 'Streaming'] };
+            appSettings.categoryRules.forEach(r => {
+                if (r.categorie === 'Voiture') r.categorie = 'Transport';
+                const m = String(r.id).startsWith('def-') && moved[r.motif];
+                if (m && r.categorie === m[0]) { r.categorie = m[1]; r.desc = m[2]; }
+            });
+            const ids = new Set(appSettings.categoryRules.map(r => r.id));
+            CAT_V2_RULES.forEach(r => { if (!ids.has(r.id)) appSettings.categoryRules.push({ ...r }); });
+            appSettings.catRulesV2 = true;
+        }
         if (!appSettings.bankRulesV1) {
             const ids = new Set(appSettings.categoryRules.map(r => r.id));
             BANK_CATEGORY_RULES.forEach(r => { if (!ids.has(r.id)) appSettings.categoryRules.push({ ...r }); });
@@ -11411,9 +11545,57 @@ window.closeHelp = function() {
         return t.slice(0, 60) || 'Opération bancaire';
     }
 
+    // ── Paiements à l'étranger → Voyage suggéré ──────────────────────
+    // Le Crédit Agricole n'indique ni pays ni devise : seulement la ville du commerçant
+    // (« PAIEMENT PAR CARTE X0155 LAWSON TOKYO 11/10 »). On repère donc des villes et pays connus.
+    // Le pays où l'on vit (Réglages → Banque) et la France ne déclenchent jamais Voyage.
+    const BANK_PLACES = {
+        JP: ['Japon', 'japan japon nippon tokyo osaka kyoto okinawa naha fukuoka sapporo saitama yokohama nagoya hiroshima kobe kamakura matsumoto shinjuku shibuya chiyoda minato taito sumida toshima narita haneda kanazawa sendai matsue tottori izumo kagoshima nagasaki kumamoto hakone nikko chiba kawasaki suica pasmo tokashiki ishigaki'],
+        TW: ['Taïwan', 'taiwan taipei kaohsiung kaoshiung hsinchu taichung tainan taoyuan hualien keelung yilan chiayi pingtung kenting easycard'],
+        VN: ['Vietnam', 'vietnam hanoi ha_noi ninh_binh ha_long halong ho_chi_minh saigon da_nang danang hoi_an sapa cat_ba'],
+        KR: ['Corée du Sud', 'korea seoul busan incheon jeju'],
+        HK: ['Hong Kong', 'hong_kong hongkong kowloon macau macao'],
+        CN: ['Chine', 'china shanghai beijing shenzhen guangzhou'],
+        TH: ['Thaïlande', 'thailand bangkok phuket chiang_mai'],
+        SG: ['Singapour', 'singapore'],
+        ID: ['Indonésie', 'indonesia bali jakarta'],
+        PH: ['Philippines', 'philippines manila cebu'],
+        PT: ['Portugal', 'portugal lisboa lisbon porto funchal madeira'],
+        ES: ['Espagne', 'espana spain madrid barcelona sevilla valencia benasque'],
+        IT: ['Italie', 'italia italy roma milano venezia firenze napoli'],
+        DE: ['Allemagne', 'deutschland germany berlin munchen hamburg'],
+        GB: ['Royaume-Uni', 'london edinburgh'],
+        BE: ['Belgique', 'bruxelles brussels'],
+        CH: ['Suisse', 'geneve zurich lausanne'],
+        NL: ['Pays-Bas', 'amsterdam rotterdam'],
+        US: ['États-Unis', 'usa new_york los_angeles san_francisco'],
+        AD: ['Andorre', 'andorra andorre']
+    };
+    const RESIDENCE_CHOICES = [['FR', 'France'], ...Object.entries(BANK_PLACES).map(([k, v]) => [k, v[0]])];
+
+    /** Pays (hors France et pays de résidence) repéré dans un libellé bancaire, sinon null */
+    function bankAbroadCountry(raw) {
+        const hay = ' ' + normTxt(raw).replace(/[^a-z0-9]+/g, ' ') + ' ';
+        const home = appSettings.residenceCountry || 'FR';
+        for (const [code, [name, words]] of Object.entries(BANK_PLACES)) {
+            if (code === home) continue;
+            if (words.split(' ').some(w => hay.includes(' ' + w.replace(/_/g, ' ') + ' '))) return name;
+        }
+        // Frais bancaires de paiement hors zone euro : un voyage, sauf si l'on vit hors de France
+        if (home === 'FR' && /hors zone euro|commission (int|internationale)|frais (paiement|retrait) (etranger|hors)/.test(hay)) return 'étranger';
+        return null;
+    }
+
+    function setResidenceCountry(code) {
+        appSettings.residenceCountry = code || 'FR';
+        saveSettings();
+        renderBankUI();
+    }
+
     function bankCategorize(x) {
         const rawLabel = [x.label, x.counterparty].filter(Boolean).join(' ');
         const desc = cleanBankLabel(x.label || x.counterparty);
+        if (x.amount < 0 && appSettings.categories.includes('Voyage') && bankAbroadCountry(rawLabel)) return { categorie: 'Voyage', desc };
         const rule = matchCategoryRule(rawLabel) || matchCategoryRule(desc);
         let categorie = rule ? rule.categorie : (x.amount > 0 ? 'Entrée' : 'Autres');
         if (categorie === 'Entrée' && x.amount < 0) categorie = 'Autres';
@@ -11635,6 +11817,7 @@ window.closeHelp = function() {
                     const rec = it.recId ? transactions.find(t => t.id === it.recId) : null;
                     return `<div class="brv-row"><div class="brv-main">
                         <div class="brv-top"><div class="brv-label" title="${escapeHTML(it.raw)}">${escapeHTML(it.label)}</div>${amt(it.amount)}</div>
+                        ${it.amount < 0 && bankAbroadCountry(it.raw || it.label) ? `<div class="brv-sub">Paiement repéré à l'étranger (${escapeHTML(bankAbroadCountry(it.raw || it.label))})</div>` : ''}
                         ${rec ? `<div class="brv-sub is-warn">Déjà comptée par la récurrente « ${escapeHTML(rec.desc)} » du ${escapeHTML(rec.date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }))} : à ignorer sauf erreur</div>` : ''}
                         <div class="brv-actions">
                             <select class="brv-cat" aria-label="Catégorie" onchange="bankSetItemCat(${jsArg(it.id)}, this.value)">${catOpts(it.categorie)}</select>
@@ -11858,6 +12041,11 @@ window.closeHelp = function() {
                     </div>
                     <select class="bank-mode" aria-label="Usage du compte ${escapeHTML(acc.name)}" onchange="bankSetMode(${jsArg(acc.uid)}, this.value)">${modeOptions(acc)}</select>
                 </div>`).join('')}
+            </div>
+            <div class="settings-row">
+                <div><div class="settings-row-label">Pays où vous vivez</div>
+                <div class="settings-row-desc">Les paiements repérés dans un autre pays (hors France) sont suggérés en Voyage</div></div>
+                <div class="settings-row-control"><select id="bank-residence" onchange="setResidenceCountry(this.value)">${RESIDENCE_CHOICES.map(([k, n]) => `<option value="${k}"${(appSettings.residenceCountry || 'FR') === k ? ' selected' : ''}>${escapeHTML(n)}</option>`).join('')}</select></div>
             </div>
             <div class="settings-row">
                 <div><div class="settings-row-label">Dernière synchro</div>
@@ -12142,7 +12330,7 @@ function _buildDemoData() {
             { cat:'Loyers',      montant:-950,   desc:'Loyer appartement' },
             { cat:'Nourriture',  montant:-320,   desc:'Courses semaine' },
             { cat:'Nourriture',  montant:-85,    desc:'Restaurant' },
-            { cat:'Voiture',     montant:-160,   desc:'Essence + péage' },
+            { cat:'Transport',   montant:-160,   desc:'Essence + péage' },
             { cat:'Sortie',      montant:-95,    desc:'Cinéma & sorties' },
             { cat:'Achat',       montant:-249,   desc:'Nouvelles baskets' },
             { cat:'Epargne',     montant:-300,   desc:'Virement livret A' },
@@ -12153,8 +12341,8 @@ function _buildDemoData() {
             { cat:'Loyers',      montant:-950,   desc:'Loyer appartement' },
             { cat:'Nourriture',  montant:-295,   desc:'Courses semaine' },
             { cat:'Nourriture',  montant:-62,    desc:'Déjeuner collègues' },
-            { cat:'Voiture',     montant:-320,   desc:'Révision voiture' },
-            { cat:'Sortie',      montant:-140,   desc:'Week-end à Lyon', projet:9002 },
+            { cat:'Transport',   montant:-320,   desc:'Révision voiture' },
+            { cat:'Voyage',      montant:-140,   desc:'Week-end à Lyon', projet:9002 },
             { cat:'Achat',       montant:-89,    desc:'Livres & tech' },
             { cat:'Epargne',     montant:-400,   desc:'PEA mensuel' },
             { cat:'Entrée',      montant:180,    desc:'Remboursement ami' },
@@ -12164,8 +12352,8 @@ function _buildDemoData() {
             { cat:'Entrée',      montant:450,    desc:'Prime vacances', projet:9001 },
             { cat:'Loyers',      montant:-950,   desc:'Loyer appartement' },
             { cat:'Nourriture',  montant:-410,   desc:'Courses + marché' },
-            { cat:'Voiture',     montant:-145,   desc:'Essence' },
-            { cat:'Sortie',      montant:-380,   desc:'Vacances mer', projet:9001 },
+            { cat:'Transport',   montant:-145,   desc:'Essence' },
+            { cat:'Voyage',      montant:-380,   desc:'Vacances mer', projet:9001 },
             { cat:'Achat',       montant:-195,   desc:'Équipement plage', projet:9001 },
             { cat:'Epargne',     montant:-500,   desc:'Épargne été' },
         ]},
@@ -12173,7 +12361,7 @@ function _buildDemoData() {
             { cat:'Entrée',      montant:3200,   desc:'Salaire juillet' },
             { cat:'Loyers',      montant:-950,   desc:'Loyer appartement' },
             { cat:'Nourriture',  montant:-275,   desc:'Courses' },
-            { cat:'Voiture',     montant:-155,   desc:'Essence' },
+            { cat:'Transport',   montant:-155,   desc:'Essence' },
             { cat:'Sortie',      montant:-210,   desc:'Festival musique' },
             { cat:'Achat',       montant:-599,   desc:'Nouveau téléphone', projet:9003 },
             { cat:'Epargne',     montant:-200,   desc:'Livret A' },
@@ -12183,7 +12371,7 @@ function _buildDemoData() {
             { cat:'Entrée',      montant:3200,   desc:'Salaire juin' },
             { cat:'Loyers',      montant:-950,   desc:'Loyer appartement' },
             { cat:'Nourriture',  montant:-305,   desc:'Courses bio' },
-            { cat:'Voiture',     montant:-130,   desc:'Essence' },
+            { cat:'Transport',   montant:-130,   desc:'Essence' },
             { cat:'Sortie',      montant:-85,    desc:'Soirées' },
             { cat:'Achat',       montant:-120,   desc:'Vêtements soldes' },
             { cat:'Epargne',     montant:-350,   desc:'Virement épargne' },
@@ -12193,7 +12381,7 @@ function _buildDemoData() {
             { cat:'Entrée',      montant:3200,   desc:'Salaire mai' },
             { cat:'Loyers',      montant:-950,   desc:'Loyer appartement' },
             { cat:'Nourriture',  montant:-280,   desc:'Courses' },
-            { cat:'Voiture',     montant:-175,   desc:'CT + essence' },
+            { cat:'Transport',   montant:-175,   desc:'CT + essence' },
             { cat:'Sortie',      montant:-120,   desc:'Restaurants' },
             { cat:'Achat',       montant:-340,   desc:'Électroménager' },
             { cat:'Epargne',     montant:-300,   desc:'Livret A' },
@@ -12468,6 +12656,7 @@ function loadLocalData() {
         if (settings) Object.assign(appSettings, JSON.parse(settings));
         const upd = localStorage.getItem('local-last-update');
         if (upd) lastUpdateDate = upd;
+        if (migrateCategoriesV2() && typeof saveLocalData === 'function') saveLocalData();
     } catch(e) { console.warn('[LOCAL] loadLocalData error', e); }
 }
 
