@@ -7338,7 +7338,9 @@ window.closeHelp = function() {
     /** Voyage/projet actif dont la période couvre cette date (pour la liaison automatique) */
     function findProjetForDate(date) {
         const day = toISODateLocal(date);
-        return getProjets().find(p => p.statut !== 'archive' && p.dateDebut && p.dateFin
+        // Les voyages repérés par pays (p.auto) ne se remplissent pas par date : un achat fait
+        // chez soi pendant ces dates (débit différé) n'a rien à y faire
+        return getProjets().find(p => p.statut !== 'archive' && !p.auto && p.dateDebut && p.dateFin
             && p.dateDebut <= day && day <= p.dateFin) || null;
     }
 
@@ -10306,15 +10308,79 @@ window.closeHelp = function() {
             changed = true;
         });
         // Transactions
-        const now = Date.now();
+        // Horodatage fixe : identique sur tous les appareils, et toujours plus ancien qu'une
+        // correction faite à la main ensuite (qui gagne donc à la fusion cloud)
         let moved = 0;
         transactions.forEach(t => {
             if ((t.updatedAt || 0) >= CAT_V2_CUTOFF) return;
             const target = catV2Target(t);
-            if (target && target !== t.categorie) { t.categorie = target; t.updatedAt = now; moved++; }
+            if (target && target !== t.categorie) { t.categorie = target; t.updatedAt = CAT_V2_CUTOFF; moved++; }
         });
         if (moved) { changed = true; console.log('Catégories V2 :', moved, 'transactions reclassées'); }
+        if (migrateTripsV3()) changed = true;
         return changed;
+    }
+
+    // ===== VOYAGES V3 : rattachement de l'historique à un voyage (octobre 2026) =====
+    // Voyages créés une seule fois, avec un identifiant fixe (pas de doublon entre appareils).
+    // Une opération n'est rattachée que si elle n'a pas de voyage et n'a pas été modifiée
+    // depuis : retirer une opération d'un voyage à la main est définitif.
+    const TRIPS_V3_STAMP = Date.parse('2026-10-15T07:00:00Z');
+    const TRIPS_V3 = [
+        { id: 'v3-madere-2025',   nom: 'Madère 2025', descs: ['madere', 'appartement madere 1', 'appartement madere 2', 'location voiture madere', 'billet avion'] },
+        { id: 'v3-hongkong',      nom: 'Hongkong', descs: ['airbnb hk'] },
+        { id: 'v3-okinawa-2026',  nom: 'Okinawa', pays: 'Japon', from: '2026-10-01', to: '2026-10-20', test: d => /\b(tokyo|okinawa|saitama)\b/.test(d) || d.startsWith('okinawa') || d.startsWith('transatel') },
+        { id: 'v3-clecy',         nom: 'Weekend Clécy', descs: ['courses clecy', 'paillote clecy'] },
+        { id: 'v3-moussac',       nom: 'Weekend Moussac', descs: ['moussac', 'cave moussac'] },
+        { id: 'v3-printemps-bourges', nom: 'Printemps de Bourges', descs: ['printemps bourges'] },
+        { id: 'v3-disney',        nom: 'Disney', descs: ['disney'] },
+        { id: 'v3-ski',           nom: 'Ski', descs: ['ski'] },
+        { id: 'v3-weekend-14-juillet', nom: 'Weekend 14 juillet', descs: ['weekend 14 juillet'] },
+        { id: '0.6545526780732951', nom: null, descs: ['visa taiwan'] } // voyage « Taiwan » existant
+    ];
+
+    function migrateTripsV3() {
+        const s = appSettings;
+        let changed = false;
+        if (!s.tripsV3) {
+            if (!Array.isArray(s.projets)) s.projets = [];
+            const ids = new Set(s.projets.map(p => p.id));
+            TRIPS_V3.forEach(v => {
+                if (!v.nom || ids.has(v.id)) return;
+                // Seulement s'il y a des opérations à y mettre (pas de voyage vide pour un nouveau compte)
+                if (!transactions.some(t => tripV3Match(v, t))) return;
+                s.projets.push({ id: v.id, nom: v.nom, type: 'voyage', budget: 0, dateDebut: null, dateFin: null, statut: 'actif', icone: '', ...(v.pays ? { pays: v.pays, auto: true } : {}) });
+            });
+            s.tripsV3 = true;
+            changed = true;
+        }
+        const existing = new Set((s.projets || []).map(p => p.id));
+        let linked = 0;
+        transactions.forEach(t => {
+            if (t.projetId || (t.updatedAt || 0) > TRIPS_V3_STAMP) return;
+            const v = TRIPS_V3.find(v => existing.has(v.id) && tripV3Match(v, t));
+            if (v) { t.projetId = v.id; t.updatedAt = TRIPS_V3_STAMP; linked++; }
+        });
+        if (linked) {
+            changed = true;
+            console.log('Voyages V3 :', linked, 'opérations rattachées');
+            TRIPS_V3.forEach(v => { const p = (s.projets || []).find(p => p.id === v.id); if (p && p.auto) tripRefreshDates(p); });
+        }
+        return changed;
+    }
+    function tripV3Match(v, t) {
+        if (t.montant >= 0 || t.categorie !== 'Voyage') return false;
+        const d = catV2Norm(t.desc);
+        if (v.from) { const day = toISODateLocal(t.date); if (day < v.from || day > v.to) return false; }
+        return v.test ? v.test(d) : v.descs.includes(d);
+    }
+
+    /** Dates d'un voyage créé automatiquement = première et dernière dépense rattachée */
+    function tripRefreshDates(p) {
+        const days = transactions.filter(t => t.projetId === p.id).map(t => toISODateLocal(t.date)).sort();
+        if (!days.length) return;
+        p.dateDebut = days[0];
+        p.dateFin = days[days.length - 1];
     }
 
     // ===== PROJETS / VOYAGES =====
@@ -10363,7 +10429,7 @@ window.closeHelp = function() {
     function deleteProjet(id) {
         appSettings.projets = getProjets().filter(p => p.id !== id);
         // Dé-tagger les transactions liées
-        transactions.forEach(t => { if (t.projetId === id) t.projetId = null; });
+        transactions.forEach(t => { if (t.projetId === id) { t.projetId = null; t.updatedAt = Date.now(); } });
         saveProjets();
         saveToLocalStorage();
     }
@@ -11782,18 +11848,62 @@ window.closeHelp = function() {
         renderBankUI();
     }
     function bankItem(id) { return bankInbox().find(it => it.id === id); }
-    function bankSetItemCat(id, v) { const it = bankItem(id); if (it) { it.categorie = v; saveBankSettings(); } }
+    function bankSetItemCat(id, v) { const it = bankItem(id); if (it) { it.categorie = v; saveBankSettings(); renderBankReview(); } }
+    function bankSetItemTrip(id, v) { const it = bankItem(id); if (it) { it.trip = v; saveBankSettings(); } }
+
+    // ── Voyages automatiques ──
+    // Un achat dans un pays où l'on ne vit pas propose un voyage « Japon octobre 2026 ».
+    // Les achats suivants du même pays y vont tant qu'il n'y a pas 7 jours sans achat là-bas.
+    // Date utilisée : celle de l'achat (écrite dans le libellé), donc un débit différé qui
+    // arrive tard retombe dans le bon voyage. Un voyage par pays.
+    const TRIP_GAP_DAYS = 7;
+    function isoAddDays(iso, n) { const d = fromISODateLocal(iso); d.setDate(d.getDate() + n); return toISODateLocal(d); }
+    function bankTripFor(pays, day) {
+        return getProjets().filter(p => p.type === 'voyage' && p.pays === pays && p.dateDebut && p.statut !== 'archive'
+                && day >= isoAddDays(p.dateDebut, -TRIP_GAP_DAYS) && day <= isoAddDays(p.dateFin || p.dateDebut, TRIP_GAP_DAYS))
+            .sort((a, b) => (b.dateFin || '').localeCompare(a.dateFin || ''))[0] || null;
+    }
+    function bankNewTripName(pays, day) {
+        const d = fromISODateLocal(day);
+        return `${pays} ${d.toLocaleDateString('fr-FR', { month: 'long' })} ${d.getFullYear()}`;
+    }
+    /** Voyage proposé pour une opération : id d'un voyage, 'new' (à créer) ou '' (aucun) */
+    function bankItemTrip(it) {
+        if (it.trip !== undefined) return it.trip;
+        const pays = it.amount < 0 ? bankAbroadCountry(it.raw || it.label) : null;
+        if (!pays || pays === 'étranger') return '';
+        const p = bankTripFor(pays, it.day)
+            // Voyage créé à la main dont les dates couvrent l'achat
+            || getProjets().find(p => p.type === 'voyage' && !p.auto && p.statut !== 'archive' && p.dateDebut && p.dateFin && p.dateDebut <= it.day && it.day <= p.dateFin);
+        return p ? p.id : 'new';
+    }
+
     function bankAcceptItem(id, batch) {
         const it = bankItem(id);
         if (!it) return;
         const categorie = appSettings.categories.includes(it.categorie) ? it.categorie : (it.amount > 0 ? 'Entrée' : 'Autres');
-        insertTransaction({ id: it.id, date: fromISODateLocal(it.day), categorie, desc: it.desc || it.label, montant: it.amount, compteId: null, bank: true });
+        let projetId = null;
+        if (categorie === 'Voyage') {
+            let trip = bankItemTrip(it);
+            const pays = bankAbroadCountry(it.raw || it.label);
+            if (trip === 'new' && pays) {
+                // Un voyage a pu être créé juste avant (« Tout ajouter ») : on le réutilise
+                const p = bankTripFor(pays, it.day)
+                    || createProjet({ nom: bankNewTripName(pays, it.day), type: 'voyage', dateDebut: it.day, dateFin: it.day });
+                if (p && !p.pays) { p.pays = pays; p.auto = true; }
+                trip = p ? p.id : '';
+            }
+            projetId = trip && trip !== 'new' && getProjetById(trip) ? trip : null;
+        }
+        insertTransaction({ id: it.id, date: fromISODateLocal(it.day), categorie, desc: it.desc || it.label, montant: it.amount, compteId: null, bank: true, projetId }, { autoLink: false });
         appSettings.bank.inbox = bankInbox().filter(x => x.id !== id);
+        const p = projetId && getProjetById(projetId);
+        if (p && p.auto) { tripRefreshDates(p); saveProjets(); }
         if (!batch) bankInboxSave(true);
     }
     /** « Tout ajouter » laisse de côté ce qui ressemble à une récurrente déjà comptée */
     function bankAcceptAll() {
-        const ids = bankInbox().filter(it => !it.recId).map(it => it.id);
+        const ids = bankInbox().filter(it => !it.recId).sort((a, b) => a.day.localeCompare(b.day)).map(it => it.id);
         ids.forEach(id => bankAcceptItem(id, true));
         bankInboxSave(true);
         showToast(`${ids.length} opération${ids.length > 1 ? 's' : ''} ajoutée${ids.length > 1 ? 's' : ''}`);
@@ -11844,6 +11954,18 @@ window.closeHelp = function() {
         const days = [...byDay.keys()].sort().reverse();
         const catOpts = cur => appSettings.categories.map(c => `<option value="${escapeHTML(c)}"${c === cur ? ' selected' : ''}>${escapeHTML(c)}</option>`).join('');
         const amt = v => `<span class="brv-amt${v > 0 ? ' is-in' : ''}">${fmtEUR(v, { sign: true })}</span>`;
+        const trips = getProjets().filter(p => p.type === 'voyage' && p.statut !== 'archive')
+            .sort((a, b) => (b.dateFin || b.dateDebut || '').localeCompare(a.dateFin || a.dateDebut || ''));
+        const tripSelect = it => {
+            const cur = bankItemTrip(it);
+            const pays = bankAbroadCountry(it.raw || it.label);
+            const opt = (v, label) => `<option value="${escapeHTML(v)}"${cur === v ? ' selected' : ''}>${escapeHTML(label)}</option>`;
+            return `<select class="brv-trip" aria-label="Voyage" onchange="bankSetItemTrip(${jsArg(it.id)}, this.value)">
+                ${opt('', 'Aucun voyage')}
+                ${pays && pays !== 'étranger' && !bankTripFor(pays, it.day) ? opt('new', 'Nouveau · ' + bankNewTripName(pays, it.day)) : ''}
+                ${trips.map(p => opt(p.id, '✈ ' + sanitizeStr(p.nom))).join('')}
+            </select>`;
+        };
         list.innerHTML = days.map(day => {
             const its = byDay.get(day);
             return `<div class="brv-day">
@@ -11859,6 +11981,7 @@ window.closeHelp = function() {
                             <button class="btn btn-small" type="button" onclick="bankAcceptItem(${jsArg(it.id)})">Ajouter</button>
                             <button class="btn btn-small secondary" type="button" onclick="bankIgnoreItem(${jsArg(it.id)})">Ignorer</button>
                         </div>
+                        ${it.categorie === 'Voyage' ? tripSelect(it) : ''}
                     </div></div>`;
                 }).join('')}
             </div>`;
@@ -13024,6 +13147,7 @@ body.pwa-mode .bank-review { max-height: calc(100dvh - 32px - env(safe-area-inse
 .brv-row { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
 .brv-main { flex: 1; min-width: 0; }
 .brv-label { font-size: 15px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brv-trip { width: 100%; margin: 8px 0 0; font-size: 15px; }
 .brv-sub { font-size: 13px; color: var(--text-secondary); margin-top: 2px; line-height: 1.35; }
 .brv-sub.is-warn { color: var(--warning); }
 .brv-amt { font-size: 15px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; padding-top: 1px; }
