@@ -1247,17 +1247,37 @@
 
         /* ── Masquer les montants (mode privé) — uniquement les € ── */
 
-        body.hide-amounts .amount-hidden {
-            filter: blur(8px);
-            user-select: none;
-            pointer-events: none;
-        }
-        body.hide-amounts input.amount-hidden {
+        /* Les montants affichés deviennent « •••• € » (voir privacyMask) ; dans les champs
+           de saisie, les chiffres sont remplacés par des points comme un mot de passe */
+        /* Champ au repos : « •••• » fixe (le nombre de chiffres ne se devine pas) ;
+           en cours de saisie : chiffres remplacés par des points */
+        body.hide-amounts :is(input[type="number"], input.amount-hidden, input.tx-amount-input):not(.privacy-keep):not(:focus):not(:placeholder-shown) {
             color: transparent !important;
-            text-shadow: 0 0 8px var(--text-secondary);
-            filter: none;
-            pointer-events: none;
+            -webkit-text-fill-color: transparent;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='34' height='8'%3E%3Cg fill='%238e8e93'%3E%3Ccircle cx='4' cy='4' r='3'/%3E%3Ccircle cx='13' cy='4' r='3'/%3E%3Ccircle cx='22' cy='4' r='3'/%3E%3Ccircle cx='31' cy='4' r='3'/%3E%3C/g%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: center;
         }
+        body.hide-amounts :is(input[type="number"], input.amount-hidden, input.tx-amount-input):not(.privacy-keep):focus {
+            -webkit-text-security: disc;
+        }
+        #privacy-toggle {
+            position: fixed; z-index: 950;
+            top: calc(env(safe-area-inset-top, 0px) + 12px); right: 14px;
+            width: 40px; height: 40px; border-radius: 50%; border: none; padding: 0;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            color: var(--text-primary);
+            background: color-mix(in srgb, var(--bg-secondary, #fff) 78%, transparent);
+            -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6);
+            box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+            -webkit-tap-highlight-color: transparent;
+        }
+        #privacy-toggle svg { width: 21px; height: 21px; }
+        #privacy-toggle .eye-off { display: none; }
+        body.hide-amounts #privacy-toggle .eye-on { display: none; }
+        body.hide-amounts #privacy-toggle .eye-off { display: block; }
+        body.modal-open #privacy-toggle { display: none; }
+        @media print { #privacy-toggle { display: none; } }
 
 
         /* =====================================================
@@ -3123,11 +3143,11 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                 </div>
                 <div class="pret-form-group">
                     <label>Taux annuel (%)</label>
-                    <input type="number" id="pret-edit-taux" placeholder="3.5" min="0" step="0.01">
+                    <input type="number" class="privacy-keep" id="pret-edit-taux" placeholder="3.5" min="0" step="0.01">
                 </div>
                 <div class="pret-form-group">
                     <label>Durée (années)</label>
-                    <input type="number" id="pret-edit-duree" placeholder="20" min="1" step="1">
+                    <input type="number" class="privacy-keep" id="pret-edit-duree" placeholder="20" min="1" step="1">
                 </div>
             </div>
             <div class="pret-form-grid">
@@ -3308,7 +3328,7 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
                     <div>
                         <label class="modal-label">Horizon (années)</label>
-                        <input type="number" id="proj-horizon" value="20" min="1" max="60">
+                        <input type="number" class="privacy-keep" id="proj-horizon" value="20" min="1" max="60">
                     </div>
                     <div>
                         <label class="modal-label">Patrimoine de départ (€)</label>
@@ -3328,7 +3348,7 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                     </div>
                     <div>
                         <label class="modal-label">Progression annuelle (%)</label>
-                        <input type="number" id="proj-salaire-progression" value="2" step="0.1">
+                        <input type="number" class="privacy-keep" id="proj-salaire-progression" value="2" step="0.1">
                     </div>
                 </div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
@@ -3338,7 +3358,7 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                     </div>
                     <div>
                         <label class="modal-label">Part vers Actions (%) <span style="color:var(--text-secondary);font-weight:400;">— reste = Obligations</span></label>
-                        <input type="number" id="proj-alloc-actions" value="60" min="0" max="100">
+                        <input type="number" class="privacy-keep" id="proj-alloc-actions" value="60" min="0" max="100">
                     </div>
                 </div>
 
@@ -3347,7 +3367,7 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                 <button type="button" class="btn secondary btn-small" style="margin-bottom:20px;" onclick="addProjectionBien()">+ Ajouter un bien</button>
                 <div style="margin-bottom:20px;">
                     <label class="modal-label">Taux d'imposition simplifié sur revenus fonciers nets (%)</label>
-                    <input type="number" id="proj-immo-taux-imposition" value="25" min="0" max="100">
+                    <input type="number" class="privacy-keep" id="proj-immo-taux-imposition" value="25" min="0" max="100">
                 </div>
 
                 <h4 class="proj-section-title">Obligations</h4>
@@ -3358,11 +3378,11 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                     </div>
                     <div>
                         <label class="modal-label">Rendement annuel (%)</label>
-                        <input type="number" id="proj-oblig-rendement" value="3" step="0.1">
+                        <input type="number" class="privacy-keep" id="proj-oblig-rendement" value="3" step="0.1">
                     </div>
                     <div>
                         <label class="modal-label">Imposition gains (%)</label>
-                        <input type="number" id="proj-oblig-taux-imposition" value="30" min="0" max="100">
+                        <input type="number" class="privacy-keep" id="proj-oblig-taux-imposition" value="30" min="0" max="100">
                     </div>
                 </div>
 
@@ -3374,11 +3394,11 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                     </div>
                     <div>
                         <label class="modal-label">Rendement annuel (%)</label>
-                        <input type="number" id="proj-actions-rendement" value="6" step="0.1">
+                        <input type="number" class="privacy-keep" id="proj-actions-rendement" value="6" step="0.1">
                     </div>
                     <div>
                         <label class="modal-label">Imposition gains (%)</label>
-                        <input type="number" id="proj-actions-taux-imposition" value="30" min="0" max="100">
+                        <input type="number" class="privacy-keep" id="proj-actions-taux-imposition" value="30" min="0" max="100">
                     </div>
                 </div>
             </div>
@@ -3451,6 +3471,11 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
         <span id="ptr-spinner" style="display:inline-block; font-size:1.2rem;">↓</span>
         <span id="ptr-text">Tirer pour actualiser</span>
     </div>
+
+    <button type="button" id="privacy-toggle" onclick="togglePrivacy()" aria-pressed="false" aria-label="Masquer les montants" title="Masquer / afficher les montants">
+        <svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.9 8.4 2 12 2 12s3.6 7 10 7a10.4 10.4 0 0 0 5.4-1.6"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>
+    </button>
 
     <div id="tab-rail">
     <!-- TAB: MOIS EN COURS -->
@@ -3779,11 +3804,11 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                     </div>
                     <div class="pret-form-group">
                         <label>Taux annuel (%)</label>
-                        <input type="number" id="pret-new-taux" placeholder="3.5" min="0" step="0.01">
+                        <input type="number" class="privacy-keep" id="pret-new-taux" placeholder="3.5" min="0" step="0.01">
                     </div>
                     <div class="pret-form-group">
                         <label>Durée (années)</label>
-                        <input type="number" id="pret-new-duree" placeholder="20" min="1" step="1">
+                        <input type="number" class="privacy-keep" id="pret-new-duree" placeholder="20" min="1" step="1">
                     </div>
                 </div>
                 <div class="pret-form-grid" style="margin-bottom:12px;">
@@ -4052,7 +4077,7 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                     <div class="settings-row-desc">Nombre de lignes affichées dans l'aperçu</div>
                 </div>
                 <div class="settings-row-control">
-                    <input type="number" id="setting-recent-count" value="8" min="3" max="25" onchange="saveSettings()">
+                    <input type="number" class="privacy-keep" id="setting-recent-count" value="8" min="3" max="25" onchange="saveSettings()">
                 </div>
             </div>
 
@@ -4104,7 +4129,7 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                     <div class="settings-row-desc">Taux d'épargne cible sur vos revenus</div>
                 </div>
                 <div class="settings-row-control">
-                    <input type="number" id="setting-savings-target" value="20" min="0" max="100" onchange="saveSettings()">
+                    <input type="number" class="privacy-keep" id="setting-savings-target" value="20" min="0" max="100" onchange="saveSettings()">
                 </div>
             </div>
         </div>
@@ -4160,7 +4185,7 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                 <input type="text" id="rec-new-desc" placeholder="Description (ex : Loyer)">
                 <select id="rec-new-cat"></select>
                 <input type="text" inputmode="decimal" id="rec-new-montant" placeholder="Montant">
-                <input type="number" id="rec-new-jour" placeholder="Jour (1-31)" min="1" max="31" title="Jour du mois">
+                <input type="number" class="privacy-keep" id="rec-new-jour" placeholder="Jour (1-31)" min="1" max="31" title="Jour du mois">
                 <button class="btn btn-small" onclick="addRecurrenceFromForm()">+ Ajouter</button>
             </div>
         </div>
@@ -6126,6 +6151,7 @@ window.closeHelp = function() {
         Chart.defaults.plugins.legend.labels.boxWidth = 8;
         Chart.defaults.plugins.legend.labels.boxHeight = 8;
         Chart.register(scrubPlugin());
+        Chart.register(privacyChartPlugin());
     }
 
     // ── Courbes : lecture au-dessus du graphique + curseur ──
@@ -9017,19 +9043,19 @@ window.closeHelp = function() {
                     </div>
                     <div>
                         <label class="modal-label" style="margin-top:0;">Taux prêt (%)</label>
-                        <input type="number" value="${b.tauxPret}" step="0.05" oninput="updateProjectionBienField(${b.id},'tauxPret',this.value)">
+                        <input type="number" class="privacy-keep" value="${b.tauxPret}" step="0.05" oninput="updateProjectionBienField(${b.id},'tauxPret',this.value)">
                     </div>
                     <div>
                         <label class="modal-label" style="margin-top:0;">Durée prêt (ans)</label>
-                        <input type="number" value="${b.dureePret}" min="1" max="30" oninput="updateProjectionBienField(${b.id},'dureePret',this.value)">
+                        <input type="number" class="privacy-keep" value="${b.dureePret}" min="1" max="30" oninput="updateProjectionBienField(${b.id},'dureePret',this.value)">
                     </div>
                     <div>
                         <label class="modal-label" style="margin-top:0;">Achat dans (ans)</label>
-                        <input type="number" value="${b.anneeAchat}" min="0" oninput="updateProjectionBienField(${b.id},'anneeAchat',this.value)">
+                        <input type="number" class="privacy-keep" value="${b.anneeAchat}" min="0" oninput="updateProjectionBienField(${b.id},'anneeAchat',this.value)">
                     </div>
                     <div>
                         <label class="modal-label" style="margin-top:0;">Appréciation/an (%)</label>
-                        <input type="number" value="${b.appreciationAnnuelle}" step="0.1" oninput="updateProjectionBienField(${b.id},'appreciationAnnuelle',this.value)">
+                        <input type="number" class="privacy-keep" value="${b.appreciationAnnuelle}" step="0.1" oninput="updateProjectionBienField(${b.id},'appreciationAnnuelle',this.value)">
                     </div>
                     <div>
                         <label class="modal-label" style="margin-top:0;">Loyer / chambre (€)</label>
@@ -9037,15 +9063,15 @@ window.closeHelp = function() {
                     </div>
                     <div>
                         <label class="modal-label" style="margin-top:0;">Nb chambres</label>
-                        <input type="number" value="${b.nbChambres}" min="1" max="20" oninput="updateProjectionBienField(${b.id},'nbChambres',this.value)">
+                        <input type="number" class="privacy-keep" value="${b.nbChambres}" min="1" max="20" oninput="updateProjectionBienField(${b.id},'nbChambres',this.value)">
                     </div>
                     <div>
                         <label class="modal-label" style="margin-top:0;">Occupation (%)</label>
-                        <input type="number" value="${b.tauxOccupation}" min="0" max="100" oninput="updateProjectionBienField(${b.id},'tauxOccupation',this.value)">
+                        <input type="number" class="privacy-keep" value="${b.tauxOccupation}" min="0" max="100" oninput="updateProjectionBienField(${b.id},'tauxOccupation',this.value)">
                     </div>
                     <div>
                         <label class="modal-label" style="margin-top:0;">Charges/an (% loyer)</label>
-                        <input type="number" value="${b.chargesAnnuellesPct}" min="0" max="100" oninput="updateProjectionBienField(${b.id},'chargesAnnuellesPct',this.value)">
+                        <input type="number" class="privacy-keep" value="${b.chargesAnnuellesPct}" min="0" max="100" oninput="updateProjectionBienField(${b.id},'chargesAnnuellesPct',this.value)">
                     </div>
                     <div style="grid-column:span 2;">
                         <label class="modal-label" style="margin-top:0;">Taxe foncière (€/an)</label>
@@ -11168,8 +11194,136 @@ window.closeHelp = function() {
     }
 
     function toggleHideAmounts(enabled, persist = true) {
+        enabled = !!enabled;
         document.body.classList.toggle('hide-amounts', enabled);
+        const btn = document.getElementById('privacy-toggle');
+        if (btn) {
+            btn.setAttribute('aria-pressed', String(enabled));
+            btn.setAttribute('aria-label', enabled ? 'Afficher les montants' : 'Masquer les montants');
+        }
+        const chk = document.getElementById('setting-hide-amounts');
+        if (chk) chk.checked = enabled;
+        privacyMask.set(enabled);
         if (persist) { appSettings.hideAmounts = enabled; saveSettings(); }
+    }
+    function togglePrivacy() { toggleHideAmounts(!document.body.classList.contains('hide-amounts')); }
+
+    // ===== MODE PRIVÉ : montants remplacés par « •••• € » =====
+    // Plutôt que de modifier chaque affichage, on masque le texte de la page : tout montant
+    // suivi d'une devise devient « •••• € » (les pourcentages restent). Le texte d'origine est
+    // gardé pour le remettre à l'identique. Ce qui s'affiche ensuite (changement d'onglet, de
+    // mois…) est masqué au fur et à mesure. Les graphiques sont traités par privacyChartPlugin.
+    const privacyMask = (() => {
+        const DOTS = '••••';
+        const CUR = '(?:€|\\$|£|CHF|¥|CAD|EUR)';
+        const NUM = '\\d(?:[\\d\\u00a0\\u202f .,]*\\d)?';
+        const MONEY = new RegExp('([−\\-+]\\s?)?' + NUM + '\\s?(?:k|M)?\\s?' + CUR, 'g');
+        // Dans un élément marqué « montant », un nombre seul (sans %) est aussi masqué
+        const BARE = new RegExp('([−\\-+]\\s?)?' + NUM, 'g');
+        const SKIP = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'NOSCRIPT']);
+        const orig = new Map(); // nœud texte → texte d'origine
+        let on = false, observer = null;
+
+        function maskText(text, bare) {
+            const cur = (typeof appSettings !== 'undefined' && appSettings.currency) || '€';
+            let out = text.replace(MONEY, (m, sign) => (sign ? sign.trim() : '') + DOTS + '\u00a0' + cur);
+            if (bare) out = out.replace(BARE, (m, sign, i, all) => /^\s?%/.test(all.slice(i + m.length)) ? m : (sign ? sign.trim() : '') + DOTS);
+            return out;
+        }
+        function maskNode(n) {
+            const p = n.parentNode;
+            if (!p || SKIP.has(p.nodeName) || p.closest?.('.privacy-keep')) return;
+            const text = n.data;
+            if (!/\d/.test(text)) return;
+            const masked = maskText(text, !!p.closest?.('.amount-hidden'));
+            if (masked !== text) { orig.set(n, text); n.data = masked; }
+        }
+        function maskTree(root) {
+            if (root.nodeType === 3) { maskNode(root); return; }
+            if (root.nodeType !== 1 || SKIP.has(root.nodeName)) return;
+            const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+            const nodes = [];
+            while (w.nextNode()) nodes.push(w.currentNode);
+            nodes.forEach(maskNode);
+        }
+        function onMutations(list) {
+            list.forEach(m => {
+                if (m.type === 'characterData') {
+                    const n = m.target;
+                    // Texte réécrit par l'app : on oublie l'ancien original et on remasque
+                    if (orig.has(n) && n.data.includes(DOTS)) return;
+                    orig.delete(n);
+                    maskNode(n);
+                } else m.addedNodes.forEach(maskTree);
+            });
+            // Nœuds retirés de la page : inutile de les garder
+            if (orig.size > 5000) orig.forEach((t, n) => { if (!n.isConnected) orig.delete(n); });
+        }
+        function set(enabled) {
+            if (enabled === on) return;
+            on = enabled;
+            if (on) {
+                maskTree(document.body);
+                observer = observer || new MutationObserver(onMutations);
+                observer.observe(document.body, { subtree: true, childList: true, characterData: true });
+            } else {
+                observer && observer.disconnect();
+                orig.forEach((t, n) => { n.data = t; });
+                orig.clear();
+            }
+            privacyRefreshCharts();
+        }
+        return { set, isOn: () => on, maskText };
+    })();
+
+    /** Graphiques : graduations des montants vides, bulles et lectures masquées (pourcentages gardés) */
+    function privacyChartPlugin() {
+        const valueScale = t => ['linear', 'logarithmic', 'radialLinear'].includes(t);
+        const maskLine = line => {
+            if (typeof line !== 'string') return line;
+            let out = privacyMask.maskText(line, false);
+            if (out === line) {
+                // Libellé par défaut « Nom : 1 234,5 » : on masque la valeur finale si ce n'est pas un %
+                out = line.replace(/(:\s*)([−\-+]?[\d\u00a0\u202f .,]*\d)\s*$/, (m, sep) => sep + '••••');
+            }
+            return out;
+        };
+        return {
+            id: 'privacy',
+            afterUpdate(chart) {
+                // Pour que le masquage s'applique aux graduations, on passe par l'option de chaque axe
+                chart._privacyScales = chart._privacyScales || new Set();
+                Object.values(chart.scales || {}).forEach(sc => {
+                    if (!valueScale(sc.type) || chart._privacyScales.has(sc.id)) return;
+                    chart._privacyScales.add(sc.id);
+                    const so = chart.config.options.scales = chart.config.options.scales || {};
+                    const cfg = so[sc.id] = so[sc.id] || {};
+                    const prev = cfg.afterTickToLabelConversion;
+                    cfg.afterTickToLabelConversion = function (scale) {
+                        if (typeof prev === 'function') prev.call(this, scale);
+                        if (!document.body.classList.contains('hide-amounts')) return;
+                        scale.ticks.forEach(t => { if (!/%/.test(String(t.label))) t.label = ''; });
+                    };
+                    if (!chart._privacyNeedsUpdate) { chart._privacyNeedsUpdate = true; requestAnimationFrame(() => { try { chart.update('none'); } catch (e) {} }); }
+                });
+            },
+            beforeTooltipDraw(chart, args) {
+                if (!document.body.classList.contains('hide-amounts')) return;
+                const tt = args.tooltip;
+                (tt.body || []).forEach(b => {
+                    b.before = (b.before || []).map(maskLine);
+                    b.lines = (b.lines || []).map(maskLine);
+                    b.after = (b.after || []).map(maskLine);
+                });
+                ['beforeBody', 'afterBody', 'footer'].forEach(k => { if (Array.isArray(tt[k])) tt[k] = tt[k].map(maskLine); });
+                if (Array.isArray(tt.title)) tt.title = tt.title.map(l => privacyMask.maskText(String(l), false));
+            }
+        };
+    }
+    /** Redessine les graphiques existants après un changement de mode */
+    function privacyRefreshCharts() {
+        if (typeof Chart === 'undefined' || !Chart.instances) return;
+        Object.values(Chart.instances).forEach(c => { try { c.update('none'); } catch (e) {} });
     }
 
     // ===== PHOTO D'ARRIÈRE-PLAN =====
