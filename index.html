@@ -5235,9 +5235,11 @@ window.closeHelp = function() {
             prets = storedPrets ? JSON.parse(storedPrets) : [];
         } catch(e) { console.warn('Lecture historique/prêts impossible', e); }
         lastUpdateDate = localStorage.getItem('finance-last-update') || null;
-        // Nouvelles catégories : reclassement de l'historique (enregistré et envoyé au cloud)
+        // Nouvelles catégories : reclassement de l'historique (enregistré et envoyé au cloud).
+        // Seulement s'il y a des données sur cet appareil : sur un appareil vide (1re ouverture,
+        // Safari…), marquer « modifié » faisait écraser le cloud par du vide au chargement.
         try {
-            if (migrateCategoriesV2()) {
+            if (stored && transactions.length > 0 && migrateCategoriesV2()) {
                 localStorage.setItem('finance-data', JSON.stringify(transactions));
                 localStorage.setItem('finance-settings', JSON.stringify(appSettings));
                 setTimeout(() => scheduleCloudSync(), 0);
@@ -5964,6 +5966,17 @@ window.closeHelp = function() {
         // L'événement de session peut arriver AVANT l'initialisation de l'app : on charge
         // d'abord l'état local en mémoire, sinon la fusion écrasait les données locales.
         if (!window._appStateLoaded) { loadSettings(); loadFromLocalStorage(); }
+        // Appareil sans données : on prend le cloud tel quel (jamais l'inverse)
+        const localEmpty = transactions.length === 0 && patrimoine.length === 0 && Object.keys(patrimoineHistorique || {}).length === 0;
+        if (localEmpty) {
+            const keys = { transactions: 'finance-data', patrimoine: 'finance-patrimoine', prets: 'finance-prets', settings: 'finance-settings',
+                           custom_blocks: 'finance-custom-blocks', patrimoine_historique: 'finance-patrimoine-historique', last_update: 'finance-last-update' };
+            Object.entries(keys).forEach(([col, key]) => { if (row[col]) localStorage.setItem(key, row[col]); });
+            loadSettings(); loadFromLocalStorage();
+            if (typeof loadCustomBlocks === 'function') loadCustomBlocks();
+            if (typeof applySettings === 'function') applySettings();
+            return true;
+        }
         let cloudTx = [], cloudSettings = {};
         try { cloudTx = JSON.parse(row.transactions || '[]'); } catch(e) {}
         try { cloudSettings = JSON.parse(row.settings || '{}'); } catch(e) {}
@@ -5992,6 +6005,23 @@ window.closeHelp = function() {
         const cb = cloudSettings.bank, lb = appSettings.bank;
         if (cb && (!lb || (cb.updatedAt || 0) > (lb.updatedAt || 0))) { appSettings.bank = cb; changed = true; }
         try { if (migrateCategoriesV2()) changed = true; } catch (e) { console.warn('Migration catégories impossible', e); }
+        // Comptes, prêts, historique, blocs : vides ici mais remplis dans le cloud → on prend le cloud
+        // (un appareil qui n'a rien ne doit jamais effacer ce que les autres ont)
+        try {
+            const cPat = JSON.parse(row.patrimoine || '[]');
+            if (patrimoine.length === 0 && Array.isArray(cPat) && cPat.length) { patrimoine = cPat; patrimoineNextId = Math.max(0, ...cPat.map(b => b.id || 0)) + 1; changed = true; }
+            const cPrets = JSON.parse(row.prets || '[]');
+            if ((!prets || prets.length === 0) && Array.isArray(cPrets) && cPrets.length) { prets = cPrets; changed = true; }
+            const cHist = JSON.parse(row.patrimoine_historique || '{}');
+            if (Object.keys(patrimoineHistorique || {}).length === 0 && cHist && Object.keys(cHist).length) { patrimoineHistorique = cHist; changed = true; }
+            const lBlocks = JSON.parse(localStorage.getItem('finance-custom-blocks') || '[]');
+            const cBlocks = JSON.parse(row.custom_blocks || '[]');
+            if ((!Array.isArray(lBlocks) || !lBlocks.length) && Array.isArray(cBlocks) && cBlocks.length) {
+                localStorage.setItem('finance-custom-blocks', JSON.stringify(cBlocks));
+                if (typeof loadCustomBlocks === 'function') loadCustomBlocks();
+                changed = true;
+            }
+        } catch (e) { console.warn('Fusion patrimoine / blocs impossible', e); }
         persistAllLocal();
         if (changed) {
             initializeMonthSelector();
