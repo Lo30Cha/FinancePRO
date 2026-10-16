@@ -5360,10 +5360,19 @@ window.closeHelp = function() {
             };
             window._importPending = true; // bloque la synchro cloud tant que l'import n'est pas validé
             try {
-                const data = e.target.result;
+                let data = e.target.result;
                 let workbook;
-                
-                if (file.name.endsWith('.csv')) {
+                // Export de l'app ouvert puis enregistré dans Excel (.xlsx) : même contenu que le CSV
+                let asCSV = /\.csv$/i.test(file.name);
+                if (!asCSV) {
+                    try {
+                        const wb = XLSX.read(data, { type: 'binary', cellDates: true, dateNF: 'dd/mm/yyyy' });
+                        const txt = XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]], { rawNumbers: true, dateNF: 'dd/mm/yyyy', blankrows: true });
+                        if (/^"?---(LAST-UPDATE|PATRIMOINE|PRETS|PROJETS)---/m.test(txt)) { data = txt; asCSV = true; }
+                    } catch (err) { console.warn('Lecture Excel (format export) impossible', err); }
+                }
+
+                if (asCSV) {
                     console.log('Parsing CSV');
 
                     // Normaliser les fins de ligne Windows (\r\n → \n) et splitter
@@ -5586,6 +5595,7 @@ window.closeHelp = function() {
                             const iFin    = pHeaders.findIndex(h => h.includes('fin'));
                             const iStatut = pHeaders.findIndex(h => h.includes('statut'));
                             const iIcone  = pHeaders.findIndex(h => h.includes('icone') || h.includes('icône'));
+                            const iPays   = pHeaders.findIndex(h => h.includes('pays'));
                             const importedProjets = projetsLines.slice(1).map(line => {
                                 const parts = parseCSVLine(line);
                                 const nom = sanitizeStr(parts[iNom] || '').trim();
@@ -5598,7 +5608,9 @@ window.closeHelp = function() {
                                     dateDebut: (parts[iDebut] || '').trim() || null,
                                     dateFin: (parts[iFin] || '').trim() || null,
                                     statut: (parts[iStatut] || 'actif').trim() || 'actif',
-                                    icone: (parts[iIcone] || '').trim() || null
+                                    icone: (parts[iIcone] || '').trim() || null,
+                                    // Voyage repéré par pays (synchro bancaire)
+                                    ...(iPays > -1 && (parts[iPays] || '').trim() ? { pays: sanitizeStr(parts[iPays]).trim(), auto: true } : {})
                                 };
                             }).filter(Boolean);
                             if (importedProjets.length > 0) {
@@ -5729,9 +5741,19 @@ window.closeHelp = function() {
                                 if (rule) { categorie = rule.categorie; if (rule.desc) desc = rule.desc; }
                                 else categorie = montant > 0 ? 'Entrée' : 'Autres';
                             }
-                            return { id: newId(), date: parsedDate, categorie, montant, desc, projetId: null };
+                            const projetNom = sanitizeStr(String(pick(row, 'projet', 'voyage') || '').trim());
+                            return { id: newId(), date: parsedDate, categorie, montant, desc, projetId: null, _projetNom: projetNom || null };
                         })
                         .filter(t => t && !isNaN(t.montant) && t.montant !== 0 && t.date && !isNaN(t.date.getTime()));
+                    // Colonne « Projet » : rattacher au projet / voyage du même nom (créé si besoin)
+                    transactions.forEach(t => {
+                        if (t._projetNom) {
+                            const projet = getProjets().find(p => p.nom.toLowerCase() === t._projetNom.toLowerCase())
+                                || createProjet({ nom: t._projetNom });
+                            if (projet) t.projetId = projet.id;
+                        }
+                        delete t._projetNom;
+                    });
 
                     console.log('After filtering:', transactions.length, 'transactions');
 
@@ -5774,6 +5796,11 @@ window.closeHelp = function() {
                     alert('Aucune transaction valide trouvée.\n\nVérifiez:\n- Que le fichier a des données\n- Qu\'il y a au moins des colonnes Date et Montant (ou Débit/Crédit)\n\nVos données actuelles n\'ont pas été modifiées.');
                     return;
                 }
+
+                // Les opérations importées sont prises telles quelles : horodatées maintenant, pour que
+                // les reclassements automatiques (catégories V2, voyages V3) ne les retouchent pas
+                const importStamp = Date.now();
+                transactions.forEach(t => { t.updatedAt = importStamp; });
 
                 // Choix : fusionner (sans doublons) ou remplacer — seulement s'il y a déjà des données
                 const imported = transactions;
@@ -7975,10 +8002,10 @@ window.closeHelp = function() {
             const projetsList = getProjets();
             if (projetsList.length > 0) {
                 csv += '\n---PROJETS---\n';
-                csv += 'nom,type,budget,dateDebut,dateFin,statut,icone\n';
+                csv += 'nom,type,budget,dateDebut,dateFin,statut,icone,pays\n';
                 projetsList.forEach(p => {
                     const nomQ = (p.nom || '').replace(/"/g, '""');
-                    csv += `"${nomQ}",${p.type || 'projet'},${p.budget || 0},${p.dateDebut || ''},${p.dateFin || ''},${p.statut || 'actif'},${p.icone || ''}\n`;
+                    csv += `"${nomQ}",${p.type || 'projet'},${p.budget || 0},${p.dateDebut || ''},${p.dateFin || ''},${p.statut || 'actif'},${p.icone || ''},${p.pays || ''}\n`;
                 });
             }
 
