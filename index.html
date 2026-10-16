@@ -62,6 +62,7 @@
     </script>
     <title>Dashboard Financier Personnel</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <style>
@@ -359,6 +360,38 @@
 
         .chart-container      { position:relative; height:360px; margin-top:12px; width:100%; }
         .chart-container-tall { height:480px; }
+        /* Graphiques Lightweight Charts (façon Trade Republic) et barres classées */
+        .chart-container.is-bars { height:auto !important; }
+        .lw-wrap { display:flex; flex-direction:column; height:100%; }
+        .lw-head { padding:2px 0 6px; }
+        .lw-value { font-size:28px; font-weight:700; letter-spacing:-0.02em; line-height:1.15; font-variant-numeric:tabular-nums; }
+        .lw-sub { display:flex; flex-wrap:wrap; gap:4px 10px; font-size:14px; margin-top:2px; font-variant-numeric:tabular-nums; }
+        .lw-change { font-weight:600; }
+        .lw-change:empty { display:none; }
+        .lw-change.is-up { color:var(--success); }
+        .lw-change.is-down { color:var(--danger); }
+        .lw-date { color:var(--text-secondary); }
+        .lw-legend { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:6px; }
+        .lw-leg { display:inline-flex; align-items:center; gap:6px; border:none; background:none; padding:2px 0; font:inherit; font-size:13px; color:var(--text-primary); cursor:pointer; }
+        .lw-leg.off { opacity:0.4; }
+        .lw-leg-name { color:var(--text-secondary); }
+        .lw-leg-val { font-weight:600; font-variant-numeric:tabular-nums; }
+        .lw-dot, .hbar-dot { width:8px; height:8px; border-radius:50%; flex:none; }
+        .lw-chart { flex:1; min-height:120px; position:relative; }
+        .lw-periods { display:flex; justify-content:center; gap:4px; padding-top:8px; }
+        .lw-periods[hidden] { display:none; }
+        .lw-p { border:none; background:none; font:inherit; font-size:13px; font-weight:600; color:var(--text-secondary); padding:6px 14px; border-radius:14px; cursor:pointer; }
+        .lw-p.is-on { background:var(--bg-tertiary); color:var(--text-primary); }
+        .hbars { display:flex; flex-direction:column; gap:4px; }
+        .hbars-group { font-size:13px; font-weight:600; color:var(--text-secondary); margin:8px 0 2px; }
+        .hbar-row { display:flex; flex-direction:column; gap:6px; width:100%; border:none; background:none; padding:8px 0; font:inherit; color:inherit; text-align:left; cursor:pointer; }
+        .hbar-row:disabled { cursor:default; }
+        .hbar-top { display:flex; align-items:center; gap:8px; font-size:15px; }
+        .hbar-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .hbar-val { font-weight:600; font-variant-numeric:tabular-nums; }
+        .hbar-pct { color:var(--text-secondary); font-size:13px; min-width:38px; text-align:right; font-variant-numeric:tabular-nums; }
+        .hbar-track { display:block; height:6px; border-radius:3px; background:var(--bg-tertiary); overflow:hidden; }
+        .hbar-fill { display:block; height:100%; border-radius:3px; }
         .chart-container canvas { max-width:100% !important; max-height:100% !important; }
 
         /* ===== GRAPHIQUE PLEINE LARGEUR (sans bulle) ===== */
@@ -4332,6 +4365,7 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                     </button>
                 </div>
             </div>
+            <p class="settings-help" style="margin-top:10px;">Graphiques : <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView Lightweight Charts™</a> (licence Apache 2.0).</p>
         </div>
 
     </div><!-- fin settings-scroll-area -->
@@ -6198,6 +6232,272 @@ window.closeHelp = function() {
         Chart.register(privacyChartPlugin());
     }
 
+    // =====================================================================
+    // ===== GRAPHIQUES : TradingView Lightweight Charts™ + barres classées =====
+    // Courbes dans le temps façon Trade Republic : pas d'axes, valeur en grand au-dessus,
+    // curseur (appui maintenu puis glisser) qui met à jour la valeur et la date, périodes.
+    // Les camemberts deviennent des barres horizontales classées.
+    // makeChart(canvas, configChartJs, opts) remplace « new Chart(...) » : même entrée,
+    // même clic (options.onClick(evt, [{ index, datasetIndex }])), et .destroy() / .resize().
+    const MOIS_FR = { 'janv': 0, 'jan': 0, 'fevr': 1, 'fev': 1, 'mars': 2, 'mar': 2, 'avr': 3, 'mai': 4, 'juin': 5, 'juil': 6, 'aout': 7, 'sept': 8, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11 };
+    function lwIso(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+    /** Date, « 2026-05 », « 2026 », « An 3 », « mai 26 », « janv. 2025 » → « AAAA-MM-JJ » (ou null) */
+    function lwTime(x) {
+        if (x instanceof Date) return isNaN(x) ? null : lwIso(x);
+        const s = String(x ?? '').trim();
+        let m;
+        if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})/))) return `${m[1]}-${m[2]}-${m[3]}`;
+        if ((m = s.match(/^(\d{4})-(\d{2})$/))) return `${m[1]}-${m[2]}-01`;
+        if ((m = s.match(/^(\d{4})$/))) return `${m[1]}-01-01`;
+        if ((m = s.match(/^An\s+(\d+)$/i))) return `${new Date().getFullYear() + Number(m[1])}-01-01`;
+        const n = s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\./g, '');
+        if ((m = n.match(/^([a-z]+)\s+(\d{2}|\d{4})$/)) && MOIS_FR[m[1]] !== undefined) {
+            const y = m[2].length === 2 ? 2000 + Number(m[2]) : Number(m[2]);
+            return `${y}-${pad2(MOIS_FR[m[1]] + 1)}-01`;
+        }
+        return null;
+    }
+    function lwColor(c, fallback) {
+        if (Array.isArray(c)) c = c[0];
+        if (typeof c !== 'string' || !c) return fallback || '#3478F6';
+        if (/^#[0-9a-f]{8}$/i.test(c)) return c.slice(0, 7);
+        return c;
+    }
+    function lwAlpha(hex, a) {
+        const m = /^#([0-9a-f]{6})$/i.exec(hex);
+        if (!m) return hex;
+        const n = parseInt(m[1], 16);
+        return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`;
+    }
+    function lwCss(name, fallback) {
+        return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+    }
+    function lwFormat(v, format) {
+        if (v == null || isNaN(v)) return '—';
+        if (format === 'count') return Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 0 });
+        if (format === 'pct') return fmtNum(v, 1) + ' %';
+        return fmtEUR(v);
+    }
+    function lwDateLabel(t, monthly) {
+        const [y, m, d] = t.split('-').map(Number);
+        const date = new Date(y, m - 1, d);
+        return monthly ? date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+                       : date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    function makeChart(canvas, cfg, opts = {}) {
+        const empty = { destroy() {}, resize() {} };
+        if (!canvas) return empty;
+        const data = cfg.data || {};
+        const datasets = (data.datasets || []).filter(Boolean);
+        const labels = data.labels || [];
+        const onClick = cfg.options && typeof cfg.options.onClick === 'function' ? cfg.options.onClick : null;
+        if (!datasets.length || !labels.length) return empty;
+        const polar = ['pie', 'doughnut', 'polarArea'].includes(cfg.type);
+        const times = (opts.times || labels).map(lwTime);
+        try {
+            if (polar || !times.every(Boolean) || typeof LightweightCharts === 'undefined')
+                return lwBars(canvas, { labels, datasets, onClick, format: opts.format || 'eur' });
+            return lwTimeChart(canvas, { type: cfg.type, labels, times, datasets, onClick, format: opts.format || 'eur', trend: !!opts.trend });
+        } catch (e) {
+            console.warn('Graphique impossible', e);
+            return empty;
+        }
+    }
+
+    /** Remplace le canvas par un bloc HTML (le canvas reste, caché, pour un prochain rendu) */
+    function lwHost(canvas, cls) {
+        const box = canvas.parentElement;
+        box.querySelectorAll(':scope > .lw-host').forEach(el => el.remove());
+        canvas.style.display = 'none';
+        const host = document.createElement('div');
+        host.className = 'lw-host ' + cls;
+        box.appendChild(host);
+        box.classList.toggle('is-bars', cls === 'hbars');
+        box.classList.toggle('is-lw', cls === 'lw-wrap');
+        return host;
+    }
+    function lwRelease(canvas, host) {
+        host.remove();
+        const box = canvas.parentElement;
+        if (box) box.classList.remove('is-bars', 'is-lw');
+        canvas.style.display = '';
+    }
+
+    // ── Barres horizontales classées (à la place des camemberts) ──
+    function lwBars(canvas, { labels, datasets, onClick, format }) {
+        const host = lwHost(canvas, 'hbars');
+        const groups = datasets.map((ds, di) => {
+            const colors = Array.isArray(ds.backgroundColor) ? ds.backgroundColor : null;
+            const items = labels.map((label, i) => ({
+                i, label: String(label), value: Number(ds.data[i]) || 0,
+                color: lwColor(colors ? colors[i % colors.length] : (Array.isArray(ds.borderColor) ? ds.borderColor[i % ds.borderColor.length] : (ds.borderColor || ds.backgroundColor)), CHART_COLORS[i % CHART_COLORS.length])
+            })).filter(it => it.value !== 0).sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
+            return { di, name: datasets.length > 1 ? ds.label : '', items };
+        });
+        host.innerHTML = groups.map(g => {
+            const total = g.items.reduce((s, it) => s + Math.abs(it.value), 0);
+            const max = Math.max(...g.items.map(it => Math.abs(it.value)), 0);
+            return (g.name ? `<div class="hbars-group">${escapeHTML(g.name)}</div>` : '') + g.items.map(it => {
+                const pct = total > 0 ? Math.abs(it.value) / total * 100 : 0;
+                const w = max > 0 ? Math.max(2, Math.abs(it.value) / max * 100) : 0;
+                return `<button type="button" class="hbar-row" data-d="${g.di}" data-i="${it.i}"${onClick ? '' : ' disabled'}>
+                    <span class="hbar-top"><span class="hbar-dot" style="background:${it.color}"></span><span class="hbar-name">${escapeHTML(it.label)}</span>
+                    <span class="hbar-val amount-hidden">${lwFormat(it.value, format)}</span>${format === 'pct' ? '' : `<span class="hbar-pct">${fmtNum(pct, 0)} %</span>`}</span>
+                    <span class="hbar-track"><span class="hbar-fill" style="width:${w.toFixed(1)}%;background:${it.color}"></span></span>
+                </button>`;
+            }).join('');
+        }).join('') || '<div class="settings-empty">Aucune donnée.</div>';
+        if (onClick) host.addEventListener('click', e => {
+            const row = e.target.closest('.hbar-row');
+            if (row) onClick(e, [{ index: Number(row.dataset.i), datasetIndex: Number(row.dataset.d) }]);
+        });
+        return { destroy() { lwRelease(canvas, host); }, resize() {} };
+    }
+
+    // ── Courbes dans le temps ──
+    function lwTimeChart(canvas, { type, labels, times, datasets, onClick, format, trend }) {
+        const LW = LightweightCharts;
+        const host = lwHost(canvas, 'lw-wrap');
+        const multi = datasets.length > 1;
+        const monthly = times.every(t => t.endsWith('-01'));
+        host.innerHTML = `
+            <div class="lw-head">
+                ${multi ? '' : '<div class="lw-value amount-hidden"></div>'}
+                <div class="lw-sub"><span class="lw-change"></span><span class="lw-date"></span></div>
+                ${multi ? '<div class="lw-legend"></div>' : ''}
+            </div>
+            <div class="lw-chart"></div>
+            <div class="lw-periods" role="group" aria-label="Période"></div>`;
+        const head = { value: host.querySelector('.lw-value'), change: host.querySelector('.lw-change'), date: host.querySelector('.lw-date'), legend: host.querySelector('.lw-legend') };
+        const up = lwCss('--success', '#2E9E5B'), down = lwCss('--danger', '#D2483A');
+        const chart = LW.createChart(host.querySelector('.lw-chart'), {
+            autoSize: true,
+            layout: { background: { type: 'solid', color: 'transparent' }, textColor: lwCss('--text-secondary', '#8E8E93'), fontFamily: lwCss('--font', 'system-ui'), attributionLogo: false },
+            grid: { vertLines: { visible: false }, horzLines: { visible: false } },
+            rightPriceScale: { visible: false, scaleMargins: { top: 0.1, bottom: 0.06 } },
+            leftPriceScale: { visible: false },
+            timeScale: { visible: false, borderVisible: false, fixLeftEdge: true, fixRightEdge: true, lockVisibleTimeRangeOnResize: true },
+            crosshair: { mode: LW.CrosshairMode.Magnet,
+                vertLine: { labelVisible: false, width: 1, style: LW.LineStyle.Solid, color: lwAlpha(lwColor(lwCss('--text-secondary', '#8E8E93'), '#8E8E93'), 0.5) },
+                horzLine: { visible: false, labelVisible: false } },
+            handleScroll: { mouseWheel: false, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false },
+            handleScale: { axisPressedMouseMove: false, mouseWheel: false, pinch: false },
+            kineticScroll: { touch: false, mouse: false },
+            localization: { locale: 'fr-FR' }
+        });
+
+        // Points par série : une valeur par jour (la dernière), index d'origine gardé pour le clic
+        const series = datasets.map((ds, di) => {
+            const byTime = new Map();
+            times.forEach((t, i) => {
+                const v = ds.data[i];
+                if (v == null || isNaN(v)) return;
+                byTime.set(t, { time: t, value: Number(v), index: i });
+            });
+            const pts = [...byTime.values()].sort((a, b) => a.time < b.time ? -1 : 1);
+            const color = lwColor(ds.borderColor, CHART_COLORS[di % CHART_COLORS.length]);
+            const common = { lastValueVisible: false, priceLineVisible: false, crosshairMarkerRadius: 4, crosshairMarkerBorderWidth: 2 };
+            let s;
+            if (!multi && type === 'bar') s = chart.addHistogramSeries({ ...common, color });
+            else if (!multi) s = chart.addAreaSeries({ ...common, lineColor: color, topColor: lwAlpha(color, 0.22), bottomColor: lwAlpha(color, 0), lineWidth: 2 });
+            else s = chart.addLineSeries({ ...common, color, lineWidth: 2, lineStyle: ds.borderDash ? LW.LineStyle.Dashed : LW.LineStyle.Solid });
+            s.setData(pts.map(p => ({ time: p.time, value: p.value })));
+            return { s, pts, color, name: ds.label || '', di, visible: true, bar: !multi && type === 'bar' };
+        });
+        const allTimes = [...new Set(series.flatMap(x => x.pts.map(p => p.time)))].sort();
+        if (!allTimes.length) { chart.remove(); lwRelease(canvas, host); return { destroy() {}, resize() {} }; }
+        const lastT = allTimes[allTimes.length - 1];
+        // Données qui vont dans le futur (prêts) : la référence est aujourd'hui, pas la fin de la projection
+        const todayT = lwIso(new Date());
+        const refT = lastT > todayT ? (allTimes.filter(t => t <= todayT).pop() || lastT) : lastT;
+        const atOrBefore = (sr, t) => { let r = null; for (const p of sr.pts) { if (p.time <= t) r = p; else break; } return r; };
+        const firstFrom = (sr, t) => sr.pts.find(p => p.time >= t) || null;
+
+        // Périodes : seulement celles qui contiennent au moins 2 points (et plus courtes que les données)
+        const shift = (t, days) => { const d = new Date(t + 'T00:00:00'); d.setDate(d.getDate() - days); return lwIso(d); };
+        const PERIODS = [['1M', 31, 'sur 1 mois'], ['6M', 183, 'sur 6 mois'], ['1A', 366, 'sur 1 an'], ['Max', null, 'depuis le début']]
+            .filter(([, days]) => days === null || (allTimes[0] < shift(refT, days) && allTimes.filter(t => t >= shift(refT, days) && t <= refT).length >= 2));
+        let period = PERIODS[PERIODS.length - 1];
+        const rangeFrom = () => period[1] === null ? allTimes[0] : shift(refT, period[1]);
+
+        function paintTrend() {
+            if (!trend || multi) return;
+            const sr = series[0], a = firstFrom(sr, rangeFrom()), b = atOrBefore(sr, refT);
+            const col = a && b && b.value < a.value ? down : up;
+            if (sr.bar) sr.s.applyOptions({ color: col });
+            else sr.s.applyOptions({ lineColor: col, topColor: lwAlpha(col, 0.22), bottomColor: lwAlpha(col, 0) });
+        }
+        function showHead(t) {
+            const cursor = !!t;
+            const at = t || refT;
+            if (!multi) {
+                const sr = series[0], p = atOrBefore(sr, at), a = firstFrom(sr, rangeFrom());
+                head.value.textContent = p ? lwFormat(p.value, format) : '—';
+                if (p && a && !sr.bar && format !== 'count') {
+                    const diff = p.value - a.value;
+                    const pct = a.value !== 0 && Math.sign(a.value) === Math.sign(p.value) ? diff / Math.abs(a.value) * 100 : null; // % sans sens si on passe de + à −
+                    const sign = diff > 0 ? '+' : diff < 0 ? '−' : '';
+                    head.change.textContent = (format === 'pct' ? sign + fmtNum(Math.abs(diff), 1) + ' pt' : sign + fmtEUR(Math.abs(diff)).replace(/^−/, ''))
+                        + (pct !== null && format !== 'pct' ? ` (${sign}${fmtNum(Math.abs(pct), 1)} %)` : '');
+                    head.change.className = 'lw-change ' + (diff > 0 ? 'is-up' : diff < 0 ? 'is-down' : '');
+                } else { head.change.textContent = ''; head.change.className = 'lw-change'; }
+                head.date.textContent = cursor ? lwDateLabel(at, monthly) : (sr.bar ? lwDateLabel(at, monthly) : period[2]);
+            } else {
+                head.change.textContent = '';
+                head.date.textContent = lwDateLabel(at, monthly);
+                head.legend.innerHTML = series.map((sr, i) => {
+                    const p = atOrBefore(sr, at);
+                    return `<button type="button" class="lw-leg${sr.visible ? '' : ' off'}" data-i="${i}"><span class="lw-dot" style="background:${sr.color}"></span>`
+                        + `<span class="lw-leg-name">${escapeHTML(sr.name)}</span><span class="lw-leg-val amount-hidden">${p ? lwFormat(p.value, format) : '—'}</span></button>`;
+                }).join('');
+            }
+        }
+        function applyPeriod() {
+            if (period[1] === null) chart.timeScale().fitContent();
+            else chart.timeScale().setVisibleRange({ from: rangeFrom(), to: refT });
+            paintTrend();
+            showHead(null);
+            const row = host.querySelector('.lw-periods');
+            row.hidden = PERIODS.length < 2;
+            row.innerHTML = PERIODS.map(p => `<button type="button" class="lw-p${p === period ? ' is-on' : ''}" aria-pressed="${p === period}">${p[0]}</button>`).join('');
+        }
+        host.querySelector('.lw-periods').addEventListener('click', e => {
+            const b = e.target.closest('.lw-p');
+            if (!b) return;
+            period = PERIODS.find(p => p[0] === b.textContent) || period;
+            applyPeriod();
+        });
+        if (head.legend) head.legend.addEventListener('click', e => {
+            const b = e.target.closest('.lw-leg');
+            if (!b) return;
+            const sr = series[Number(b.dataset.i)];
+            if (series.filter(x => x.visible).length === 1 && sr.visible) return; // au moins une courbe
+            sr.visible = !sr.visible;
+            sr.s.applyOptions({ visible: sr.visible });
+            showHead(null);
+        });
+        chart.subscribeCrosshairMove(param => showHead(param && param.time ? String(param.time) : null));
+        if (onClick) chart.subscribeClick(param => {
+            if (!param || !param.time) return;
+            const t = String(param.time);
+            let best = series.find(x => x.visible), bestD = Infinity;
+            if (multi && param.point) series.forEach(sr => {
+                if (!sr.visible) return;
+                const p = sr.pts.find(q => q.time === t);
+                const y = p ? sr.s.priceToCoordinate(p.value) : null;
+                if (y != null && Math.abs(y - param.point.y) < bestD) { bestD = Math.abs(y - param.point.y); best = sr; }
+            });
+            const p = best && best.pts.find(q => q.time === t);
+            if (p) onClick(null, [{ index: p.index, datasetIndex: best.di }]);
+        });
+        applyPeriod();
+        return {
+            destroy() { try { chart.remove(); } catch (e) {} lwRelease(canvas, host); },
+            resize() {}
+        };
+    }
+
     // ── Courbes : lecture au-dessus du graphique + curseur ──
     // Toucher bref : comme avant (détail au clic). Glisser : la page défile.
     // Appui maintenu puis glisser : un curseur suit le doigt, valeurs en haut.
@@ -6499,7 +6799,7 @@ window.closeHelp = function() {
 
         destroyChart('chartMoisPie');
         const _moisLabels = Object.keys(depensesByCat);
-        chartInstances.chartMoisPie = new Chart(document.getElementById('chart-mois-pie'), {
+        chartInstances.chartMoisPie = makeChart(document.getElementById('chart-mois-pie'), {
             type: 'doughnut',
             data: {
                 labels: _moisLabels,
@@ -6573,7 +6873,7 @@ window.closeHelp = function() {
 
             destroyChart('chartPeriodeCumul');
             const _cumulLabels = cumulData.map(d => d.date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'short' }));
-            chartInstances.chartPeriodeCumul = new Chart(document.getElementById('chart-periode-cumul'), {
+            chartInstances.chartPeriodeCumul = makeChart(document.getElementById('chart-periode-cumul'), {
                 type: 'line',
                 data: {
                     labels: _cumulLabels,
@@ -6601,7 +6901,7 @@ window.closeHelp = function() {
                         showDetailModal(_cumulLabels[elements[0].index] + ' — Épargne', tx, 'savings');
                     }
                 }
-            });
+            }, { times: cumulData.map(d => d.date), trend: true });
 
             if (cumulData.length > 0) {
                 setChartEvoBadge('chartPeriodeCumul', cumulData[0].value, cumulData[cumulData.length - 1].value);
@@ -6634,7 +6934,7 @@ window.closeHelp = function() {
             const topCategories = Object.entries(avgByCategory).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
             destroyChart('chartPeriodeHabits');
-            chartInstances.chartPeriodeHabits = new Chart(document.getElementById('chart-periode-habits'), {
+            chartInstances.chartPeriodeHabits = makeChart(document.getElementById('chart-periode-habits'), {
                 type: 'line',
                 data: {
                     labels: monthRanges.map(d => d.toLocaleDateString('fr-FR', { year: 'numeric', month: 'short' })),
@@ -6665,12 +6965,12 @@ window.closeHelp = function() {
                         showDetailModal(catName+' — '+month.toLocaleDateString('fr-FR',{month:'short',year:'numeric'}), tx, catName==='Epargne'?'savings':'general');
                     }
                 }
-            });
+            }, { times: monthRanges.map(d => new Date(d.getFullYear(), d.getMonth(), 1)) });
 
             // Top categories pie
             destroyChart('chartPeriodeTop');
             const _topCatLabels = topCategories.map(c => c[0]);
-            chartInstances.chartPeriodeTop = new Chart(document.getElementById('chart-periode-top'), {
+            chartInstances.chartPeriodeTop = makeChart(document.getElementById('chart-periode-top'), {
                 type: 'doughnut',
                 data: {
                     labels: _topCatLabels,
@@ -7106,7 +7406,7 @@ window.closeHelp = function() {
         const CHART_COLORS = ['#1F9AA8','#8E5BD0','#C24C7B','#2E9E5B','#D9822B','#3478F6','#D2483A','#8E8E93'];
         destroyChart('chartPatrimoinePie');
         if (patrimoine.length > 0) {
-            chartInstances.chartPatrimoinePie = new Chart(document.getElementById('chart-patrimoine-pie'), {
+            chartInstances.chartPatrimoinePie = makeChart(document.getElementById('chart-patrimoine-pie'), {
                 type: 'pie',
                 data: {
                     labels: patrimoine.map(b => b.nom),
@@ -7217,7 +7517,7 @@ window.closeHelp = function() {
             }
 
             destroyChart('chartPatrimoineEvolution');
-            chartInstances.chartPatrimoineEvolution = new Chart(document.getElementById('chart-patrimoine-evolution'), {
+            chartInstances.chartPatrimoineEvolution = makeChart(document.getElementById('chart-patrimoine-evolution'), {
                 type: 'line',
                 data: { labels, datasets },
                 options: {
@@ -7232,7 +7532,7 @@ window.closeHelp = function() {
                         tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ' : ' + fmtTooltip(ctx.parsed.y) } }
                     }
                 }
-            });
+            }, { times: allKeys, trend: !hasLoans });
 
             const evoSeries = hasLoans ? dataPerso : dataReel;
             if (evoSeries.length > 0) {
@@ -7320,6 +7620,9 @@ window.closeHelp = function() {
     function setChartEvoBadge(key, firstVal, lastVal) {
         const badge = document.getElementById('evo-badge-' + key);
         if (!badge) return;
+        // La variation est maintenant affichée dans l'en-tête de chaque courbe
+        badge.style.display = 'none';
+        return;
         if (firstVal === undefined || lastVal === undefined || isNaN(firstVal) || isNaN(lastVal)) {
             badge.style.display = 'none';
             return;
@@ -8847,7 +9150,7 @@ window.closeHelp = function() {
         const series = computeProjectionSeries(block.projection);
         if (series.years.length === 0) return;
 
-        customChartInstances[block.id] = new Chart(canvas, {
+        customChartInstances[block.id] = makeChart(canvas, {
             type: 'line',
             data: {
                 labels: series.years.map(y => `An ${y}`),
@@ -9366,7 +9669,7 @@ window.closeHelp = function() {
         const existingLabel = opts.plugins?.tooltip?.callbacks?.label;
         opts.plugins.cursor = { enabled: true };
 
-        customChartInstances[block.id] = new Chart(canvas, {type:block.type, data:chartData, options:opts});
+        customChartInstances[block.id] = makeChart(canvas, {type:block.type, data:chartData, options:opts}, { times: chartGroupType === 'month' ? chartKeys : null });
     }
 
     function renderScratchBlock(block) {
@@ -9526,11 +9829,11 @@ window.closeHelp = function() {
                 openGroupDetailScratchByIndex(_blockId, idx, _labels, groupType);
             };
 
-            customChartInstances[block.id] = new Chart(canvas, {
+            customChartInstances[block.id] = makeChart(canvas, {
                 type:    display === 'auto' ? 'bar' : display,
                 data:    chartData,
                 options: opts,
-            });
+            }, { format: isCount ? 'count' : isPercent ? 'pct' : 'eur' });
 
         } catch (e) {
             if (canvas.parentElement) canvas.parentElement.innerHTML =
@@ -9823,7 +10126,7 @@ window.closeHelp = function() {
                 if (detailChartInstance) { detailChartInstance.destroy(); detailChartInstance = null; }
                 const canvas = document.getElementById('detail-cumul-chart');
                 if (canvas && cumulData.length > 0) {
-                    detailChartInstance = new Chart(canvas, {
+                    detailChartInstance = makeChart(canvas, {
                         type: 'line',
                         data: {
                             labels: cumulData.map(d => d.date.toLocaleDateString('fr-FR', {month:'short', year:'2-digit'})),
@@ -9844,7 +10147,7 @@ window.closeHelp = function() {
                             },
                             plugins: { legend:{display:false}, tooltip:{callbacks:{label: ctx => ' '+formatMoney(ctx.parsed.y)}} }
                         }
-                    });
+                    }, { times: cumulData.map(d => d.date), trend: true });
                 }
             }, 60);
         }
@@ -10202,7 +10505,7 @@ window.closeHelp = function() {
         const catLabels = Object.keys(catTotals).sort((a, b) => catTotals[b] - catTotals[a]);
         destroyChart('chartProjetCategories');
         if (catLabels.length > 0) {
-            chartInstances.chartProjetCategories = new Chart(document.getElementById('chart-projet-categories'), {
+            chartInstances.chartProjetCategories = makeChart(document.getElementById('chart-projet-categories'), {
                 type: 'doughnut',
                 data: {
                     labels: catLabels,
@@ -10228,7 +10531,7 @@ window.closeHelp = function() {
         });
         destroyChart('chartProjetCumul');
         if (cumulData.length > 0) {
-            chartInstances.chartProjetCumul = new Chart(document.getElementById('chart-projet-cumul'), {
+            chartInstances.chartProjetCumul = makeChart(document.getElementById('chart-projet-cumul'), {
                 type: 'line',
                 data: {
                     labels: cumulData.map(d => d.date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })),
@@ -10247,7 +10550,7 @@ window.closeHelp = function() {
                     },
                     plugins: { legend: { labels: { color: chartTextColor() } } }
                 }
-            });
+            }, { times: cumulData.map(d => d.date), trend: true });
             setChartEvoBadge('chartProjetCumul', cumulData[0].value, cumulData[cumulData.length - 1].value);
         } else {
             const b = document.getElementById('evo-badge-chartProjetCumul');
