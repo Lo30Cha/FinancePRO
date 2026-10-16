@@ -3082,13 +3082,13 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
                 <input type="number" id="projet-form-budget" step="0.01" min="0" style="margin-bottom:0;width:100%;" placeholder="0.00">
             </div>
             <div style="display:flex; gap:10px;">
-                <div style="flex:1;">
+                <div style="flex:1; min-width:0;">
                     <label class="tx-label">Début (optionnel)</label>
-                    <input type="date" id="projet-form-debut" style="margin-bottom:0;width:100%;">
+                    <input type="date" id="projet-form-debut" style="margin-bottom:0;width:100%;min-width:0;box-sizing:border-box;">
                 </div>
-                <div style="flex:1;">
+                <div style="flex:1; min-width:0;">
                     <label class="tx-label">Fin (optionnel)</label>
-                    <input type="date" id="projet-form-fin" style="margin-bottom:0;width:100%;">
+                    <input type="date" id="projet-form-fin" style="margin-bottom:0;width:100%;min-width:0;box-sizing:border-box;">
                 </div>
             </div>
             <div style="display:flex; gap:10px; margin-top:4px;">
@@ -3606,7 +3606,12 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
         <!-- Vue détail -->
         <div id="projets-detail-view" style="display:none;">
             <button type="button" class="link-btn" style="margin-bottom:10px;" onclick="showProjetsListView()">‹ Projets et voyages</button>
-            <h2 id="projet-detail-title" style="margin:0 0 14px;"></h2>
+            <h2 id="projet-detail-title" style="margin:0 0 10px; display:flex; align-items:center; gap:8px;"></h2>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
+                <button class="btn btn-small" onclick="openProjetFormModal(true)">Modifier</button>
+                <button class="btn btn-small secondary" onclick="archiveCurrentProjet()">Archiver</button>
+                <button class="btn btn-small secondary" style="color:var(--danger);" onclick="deleteCurrentProjet()">Supprimer</button>
+            </div>
 
             <div class="grid-2">
                 <div class="stat-box">
@@ -3653,11 +3658,6 @@ body.layout-editing .chart-full:hover .block-resize-s { opacity: 1; }
             <div class="card">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
                     <h3 style="margin:0;">Transactions liées</h3>
-                    <div style="display:flex; gap:8px;">
-                        <button class="btn btn-small secondary" onclick="openProjetFormModal(true)">Modifier</button>
-                        <button class="btn btn-small secondary" onclick="archiveCurrentProjet()">Archiver</button>
-                        <button class="btn btn-small" style="border-color:color-mix(in srgb, var(--danger) 40%, transparent);color:var(--danger);" onclick="deleteCurrentProjet()">Supprimer</button>
-                    </div>
                 </div>
                 <div id="projet-detail-transactions"></div>
             </div>
@@ -7785,7 +7785,7 @@ window.closeHelp = function() {
             return;
         }
         container.innerHTML = projets.map(p => {
-            const active = t && t.projetId === p.id;
+            const active = t && sameId(t.projetId, p.id);
             return `<button type="button" class="tx-chip ${active ? 'selected' : ''}" style="justify-content:space-between; display:flex; width:100%;--chip-color:var(--accent-purple);" onclick="selectProjetForTransaction(${jsArg(p.id)})">
                 <span>${p.type === 'voyage' ? ICONS.plane : ICONS.folder} ${escapeHTML(sanitizeStr(p.nom))}</span>
                 ${active ? '<span>✓</span>' : ''}
@@ -9961,29 +9961,30 @@ window.closeHelp = function() {
     function migrateTripsV3() {
         const s = appSettings;
         let changed = false;
-        if (!s.tripsV3) {
-            if (!Array.isArray(s.projets)) s.projets = [];
-            const ids = new Set(s.projets.map(p => p.id));
-            TRIPS_V3.forEach(v => {
-                if (!v.nom || ids.has(v.id)) return;
-                // Seulement s'il y a des opérations à y mettre (pas de voyage vide pour un nouveau compte)
-                if (!transactions.some(t => tripV3Match(v, t))) return;
-                s.projets.push({ id: v.id, nom: v.nom, type: 'voyage', budget: 0, dateDebut: null, dateFin: null, statut: 'actif', icone: '', ...(v.pays ? { pays: v.pays, auto: true } : {}) });
-            });
-            s.tripsV3 = true;
-            changed = true;
-        }
-        const existing = new Set((s.projets || []).map(p => p.id));
+        if (!Array.isArray(s.projets)) s.projets = [];
+        // Voyages déjà traités (créés ou trouvés) : jamais recréés, même supprimés ensuite.
+        // On ne note un voyage qu'une fois des opérations trouvées : si les données arrivent
+        // après le premier lancement (chargement du cloud), il est créé à ce moment-là.
+        if (!Array.isArray(s.tripsV3Done)) { s.tripsV3Done = []; changed = true; }
+        const done = new Set(s.tripsV3Done);
+        TRIPS_V3.forEach(v => {
+            if (done.has(v.id)) return;
+            const exists = s.projets.some(p => sameId(p.id, v.id));
+            if (!transactions.some(t => tripV3Match(v, t) && !t.projetId)) return;
+            if (!exists && v.nom) s.projets.push({ id: v.id, nom: v.nom, type: 'voyage', budget: 0, dateDebut: null, dateFin: null, statut: 'actif', icone: '', ...(v.pays ? { pays: v.pays, auto: true } : {}) });
+            if (exists || v.nom) { s.tripsV3Done.push(v.id); done.add(v.id); changed = true; }
+        });
+        const byId = new Map((s.projets || []).map(p => [String(p.id), p]));
         let linked = 0;
         transactions.forEach(t => {
             if (t.projetId || (t.updatedAt || 0) > TRIPS_V3_STAMP) return;
-            const v = TRIPS_V3.find(v => existing.has(v.id) && tripV3Match(v, t));
-            if (v) { t.projetId = v.id; t.updatedAt = TRIPS_V3_STAMP; linked++; }
+            const v = TRIPS_V3.find(v => done.has(v.id) && byId.has(String(v.id)) && tripV3Match(v, t));
+            if (v) { t.projetId = byId.get(String(v.id)).id; t.updatedAt = TRIPS_V3_STAMP; linked++; }
         });
         if (linked) {
             changed = true;
             console.log('Voyages V3 :', linked, 'opérations rattachées');
-            TRIPS_V3.forEach(v => { const p = (s.projets || []).find(p => p.id === v.id); if (p && p.auto) tripRefreshDates(p); });
+            TRIPS_V3.forEach(v => { const p = byId.get(String(v.id)); if (p && p.auto) tripRefreshDates(p); });
         }
         return changed;
     }
@@ -9996,7 +9997,7 @@ window.closeHelp = function() {
 
     /** Dates d'un voyage créé automatiquement = première et dernière dépense rattachée */
     function tripRefreshDates(p) {
-        const days = transactions.filter(t => t.projetId === p.id).map(t => toISODateLocal(t.date)).sort();
+        const days = transactions.filter(t => sameId(t.projetId, p.id)).map(t => toISODateLocal(t.date)).sort();
         if (!days.length) return;
         p.dateDebut = days[0];
         p.dateFin = days[days.length - 1];
@@ -10009,9 +10010,11 @@ window.closeHelp = function() {
         return appSettings.projets || [];
     }
 
+    /** Les identifiants de projet sont des nombres (anciens) ou des chaînes (récents) : on compare en texte */
+    function sameId(a, b) { return a != null && b != null && String(a) === String(b); }
     function getProjetById(id) {
-        if (!id) return null;
-        return getProjets().find(p => p.id === id) || null;
+        if (id == null || id === '') return null;
+        return getProjets().find(p => sameId(p.id, id)) || null;
     }
 
     function saveProjets() {
@@ -10046,16 +10049,16 @@ window.closeHelp = function() {
     }
 
     function deleteProjet(id) {
-        appSettings.projets = getProjets().filter(p => p.id !== id);
+        appSettings.projets = getProjets().filter(p => !sameId(p.id, id));
         // Dé-tagger les transactions liées
-        transactions.forEach(t => { if (t.projetId === id) { t.projetId = null; t.updatedAt = Date.now(); } });
+        transactions.forEach(t => { if (sameId(t.projetId, id)) { t.projetId = null; t.updatedAt = Date.now(); } });
         saveProjets();
         saveToLocalStorage();
     }
 
     function getProjetSpent(id) {
         return transactions
-            .filter(t => t.projetId === id && isExpense(t))
+            .filter(t => sameId(t.projetId, id) && isExpense(t))
             .reduce((s, t) => s + getAbsoluteAmount(t), 0);
     }
 
@@ -10078,7 +10081,7 @@ window.closeHelp = function() {
         }
         grid.innerHTML = projets.map(p => {
             const depenses = getProjetSpent(p.id);
-            const entrees = transactions.filter(t => t.projetId === p.id && isRevenue(t)).reduce((s, t) => s + getAbsoluteAmount(t), 0);
+            const entrees = transactions.filter(t => sameId(t.projetId, p.id) && isRevenue(t)).reduce((s, t) => s + getAbsoluteAmount(t), 0);
             const solde = entrees - depenses;
             const hasBudget = p.budget > 0;
             const pct = hasBudget ? Math.round(depenses / p.budget * 100) : null;
@@ -10105,13 +10108,13 @@ window.closeHelp = function() {
     function renderProjetDetailView(id) {
         const p = getProjetById(id);
         if (!p) { showProjetsListView(); return; }
-        const txs = transactions.filter(t => t.projetId === id);
+        const txs = transactions.filter(t => sameId(t.projetId, id));
         const depenses = txs.filter(t => isExpense(t)).reduce((s, t) => s + getAbsoluteAmount(t), 0);
         const entrees = txs.filter(t => isRevenue(t)).reduce((s, t) => s + getAbsoluteAmount(t), 0);
         const solde = entrees - depenses;
 
         const titleEl = document.getElementById('projet-detail-title');
-        if (titleEl) titleEl.textContent = `${p.type === 'voyage' ? ICONS.plane : ICONS.folder} ${p.nom}`;
+        if (titleEl) titleEl.innerHTML = `${p.type === 'voyage' ? ICONS.plane : ICONS.folder} ${escapeHTML(sanitizeStr(p.nom))}`;
 
         document.getElementById('projet-detail-depenses').textContent = `-${fmtNum(depenses)} €`;
         document.getElementById('projet-detail-entrees').textContent = `+${fmtNum(entrees)} €`;
@@ -10148,8 +10151,7 @@ window.closeHelp = function() {
                     labels: catLabels,
                     datasets: [{
                         data: catLabels.map(c => catTotals[c]),
-                        backgroundColor: ['#3478F6', '#1F9AA8', '#8E5BD0', '#C24C7B', '#D9822B', '#2E9E5B', '#D2483A'],
-                        borderColor: 'rgba(10,14,39,1)', borderWidth: 2
+                        backgroundColor: catLabels.map((c, i) => CAT_COLORS[c] || ['#3478F6', '#1F9AA8', '#8E5BD0', '#C24C7B', '#D9822B', '#2E9E5B', '#D2483A'][i % 7])
                     }]
                 },
                 options: {
@@ -11022,7 +11024,7 @@ window.closeHelp = function() {
         // les paramètres (projets, récurrences, règles, catégories, suppressions…) sont conservées.
         const keep = {};
         ['projets', 'recurrences', 'categoryRules', 'categories', 'categoryColors', 'customDescs',
-         'deletedTxIds', 'budgets', 'lastEpargneCompteId', 'bank', 'bankRulesV1', 'catRulesV2', 'catsV2', 'residenceCountries'].forEach(k => { if (appSettings[k] !== undefined) keep[k] = appSettings[k]; });
+         'deletedTxIds', 'budgets', 'lastEpargneCompteId', 'bank', 'bankRulesV1', 'catRulesV2', 'catsV2', 'residenceCountries', 'tripsV3', 'tripsV3Done'].forEach(k => { if (appSettings[k] !== undefined) keep[k] = appSettings[k]; });
         appSettings = {
             theme: 'auto', themeV2: true, customColors: {}, appName: 'FINANCE PRO', currency: '€',
             recentCount: 8, animations: true, compact: false, savingsTarget: 20,
@@ -11640,7 +11642,7 @@ window.closeHelp = function() {
                 if (p && !p.pays) { p.pays = pays; p.auto = true; }
                 trip = p ? p.id : '';
             }
-            projetId = trip && trip !== 'new' && getProjetById(trip) ? trip : null;
+            projetId = trip && trip !== 'new' ? (getProjetById(trip)?.id ?? null) : null;
         }
         insertTransaction({ id: it.id, date: fromISODateLocal(it.day), categorie, desc: it.desc || it.label, montant: it.amount, compteId: null, bank: true, projetId }, { autoLink: false });
         appSettings.bank.inbox = bankInbox().filter(x => x.id !== id);
@@ -11706,7 +11708,7 @@ window.closeHelp = function() {
         const tripSelect = it => {
             const cur = bankItemTrip(it);
             const pays = bankAbroadCountry(it.raw || it.label);
-            const opt = (v, label) => `<option value="${escapeHTML(v)}"${cur === v ? ' selected' : ''}>${escapeHTML(label)}</option>`;
+            const opt = (v, label) => `<option value="${escapeHTML(v)}"${String(cur) === String(v) ? ' selected' : ''}>${escapeHTML(label)}</option>`;
             return `<select class="brv-trip" aria-label="Voyage" onchange="bankSetItemTrip(${jsArg(it.id)}, this.value)">
                 ${opt('', 'Aucun voyage')}
                 ${pays && pays !== 'étranger' && !bankTripFor(pays, it.day) ? opt('new', 'Nouveau · ' + bankNewTripName(pays, it.day)) : ''}
